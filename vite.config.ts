@@ -11,12 +11,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/@lezer')) {
-            return 'lezer'
-          }
-          if (id.includes('node_modules/@codemirror')) {
-            return 'codemirror'
-          }
           if (id.includes('node_modules/sql-formatter')) {
             return 'sql-formatter'
           }

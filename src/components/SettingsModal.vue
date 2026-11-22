@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { t } from '../lib/i18n'
 import type { FunDataSettings } from '../lib/storage'
+import AppIcon from './AppIcon.vue'
 
 const props = defineProps<{
   open: boolean
@@ -29,26 +30,6 @@ function patch(partial: Partial<FunDataSettings>) {
     ...partial,
   })
 }
-
-function patchSmart(partial: Partial<FunDataSettings['smartDisplay']>) {
-  emit('update:settings', {
-    ...props.settings,
-    smartDisplay: {
-      ...props.settings.smartDisplay,
-      ...partial,
-    },
-  })
-}
-
-function patchAi(partial: Partial<FunDataSettings['ai']>) {
-  emit('update:settings', {
-    ...props.settings,
-    ai: {
-      ...props.settings.ai,
-      ...partial,
-    },
-  })
-}
 </script>
 
 <template>
@@ -56,11 +37,12 @@ function patchAi(partial: Partial<FunDataSettings['ai']>) {
     <div class="modal-card" role="dialog" aria-modal="true">
       <div class="modal-header">
         <h3 class="modal-title">{{ t(settings.locale, 'action.settings') }}</h3>
-        <button type="button" class="icon-btn" aria-label="Close" @click="emit('close')">✕</button>
+        <button type="button" class="icon-btn" aria-label="Close" @click="emit('close')">
+          <AppIcon name="x" :size="15" />
+        </button>
       </div>
 
       <div class="modal-body settings-body">
-        <!-- Appearance & Locale -->
         <div class="setting-section">
           <div class="setting-row">
             <span class="setting-label">{{ t(settings.locale, 'settings.theme') }}</span>
@@ -117,7 +99,6 @@ function patchAi(partial: Partial<FunDataSettings['ai']>) {
           </div>
         </div>
 
-        <!-- Editor Preferences -->
         <div class="setting-section">
           <div class="setting-row">
             <span class="setting-label">{{ t(settings.locale, 'settings.indent') }}</span>
@@ -165,19 +146,7 @@ function patchAi(partial: Partial<FunDataSettings['ai']>) {
           </div>
 
           <div class="setting-row">
-            <span class="setting-label">{{ t(settings.locale, 'settings.wordWrap') }}</span>
-            <label class="switch-label">
-              <input
-                type="checkbox"
-                :checked="settings.wordWrap"
-                @change="patch({ wordWrap: ($event.target as HTMLInputElement).checked })"
-              />
-              <span>{{ settings.wordWrap ? (settings.locale === 'en' ? 'On' : '开启') : (settings.locale === 'en' ? 'Off' : '关闭') }}</span>
-            </label>
-          </div>
-
-          <div class="setting-row">
-            <span class="setting-label">{{ settings.locale === 'en' ? 'Time Zone' : '时间戳时区' }}</span>
+            <span class="setting-label">{{ t(settings.locale, 'settings.timeZone') }}</span>
             <select
               class="pill-select"
               :value="settings.timeZone"
@@ -191,102 +160,15 @@ function patchAi(partial: Partial<FunDataSettings['ai']>) {
           </div>
         </div>
 
-        <!-- Smart Display Toggles -->
-        <div class="setting-section">
-          <div class="section-heading">
-            {{ settings.locale === 'en' ? 'Smart Inspector & Display' : '智能解码与辅助展示' }}
-          </div>
-          <div class="smart-grid">
-            <label class="check-item">
-              <input
-                type="checkbox"
-                :checked="settings.smartDisplay.embeddedJson"
-                @change="patchSmart({ embeddedJson: ($event.target as HTMLInputElement).checked })"
-              />
-              <span>{{ settings.locale === 'en' ? 'Embedded JSON String' : '嵌套 JSON 字符串' }}</span>
-            </label>
-            <label class="check-item">
-              <input
-                type="checkbox"
-                :checked="settings.smartDisplay.colorSwatch"
-                @change="patchSmart({ colorSwatch: ($event.target as HTMLInputElement).checked })"
-              />
-              <span>{{ settings.locale === 'en' ? 'Color Swatch Preview' : '颜色色块预览' }}</span>
-            </label>
-            <label class="check-item">
-              <input
-                type="checkbox"
-                :checked="settings.smartDisplay.timestamp"
-                @change="patchSmart({ timestamp: ($event.target as HTMLInputElement).checked })"
-              />
-              <span>{{ settings.locale === 'en' ? 'Unix Timestamp' : '时间戳自动解码' }}</span>
-            </label>
-            <label class="check-item">
-              <input
-                type="checkbox"
-                :checked="settings.smartDisplay.base64"
-                @change="patchSmart({ base64: ($event.target as HTMLInputElement).checked })"
-              />
-              <span>{{ settings.locale === 'en' ? 'Base64 Text Decode' : 'Base64 自动解码' }}</span>
-            </label>
-            <label class="check-item">
-              <input
-                type="checkbox"
-                :checked="settings.smartDisplay.foldSummary"
-                @change="patchSmart({ foldSummary: ($event.target as HTMLInputElement).checked })"
-              />
-              <span>{{ settings.locale === 'en' ? 'Fold Summary' : '折叠节点摘要' }}</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- AI Repair Configuration -->
-        <div class="setting-section">
-          <div class="setting-row">
-            <span class="setting-label">{{ t(settings.locale, 'settings.aiProvider') }}</span>
-            <select
-              class="pill-select"
-              :value="settings.ai.provider"
-              @change="patchAi({ provider: ($event.target as HTMLSelectElement).value as FunDataSettings['ai']['provider'] })"
-            >
-              <option value="local">{{ t(settings.locale, 'settings.aiLocal') }}</option>
-              <option value="utools-ai">{{ t(settings.locale, 'settings.aiUtools') }}</option>
-              <option value="openai">{{ t(settings.locale, 'settings.aiOpenai') }}</option>
-            </select>
-          </div>
-
-          <div v-if="settings.ai.provider === 'openai'" class="openai-fields">
-            <div class="field-group">
-              <label class="mini-label">Base URL</label>
-              <input
-                type="text"
-                class="field-input mono"
-                :value="settings.ai.baseUrl"
-                placeholder="https://api.openai.com/v1"
-                @input="patchAi({ baseUrl: ($event.target as HTMLInputElement).value })"
-              />
-            </div>
-            <div class="field-group">
-              <label class="mini-label">Model</label>
-              <input
-                type="text"
-                class="field-input mono"
-                :value="settings.ai.model"
-                placeholder="gpt-4o-mini"
-                @input="patchAi({ model: ($event.target as HTMLInputElement).value })"
-              />
-            </div>
-            <div class="field-group">
-              <label class="mini-label">API Key</label>
-              <input
-                type="password"
-                class="field-input mono"
-                :value="settings.ai.apiKey"
-                placeholder="sk-..."
-                @input="patchAi({ apiKey: ($event.target as HTMLInputElement).value })"
-              />
-            </div>
-          </div>
+        <div class="privacy-note">
+          <AppIcon name="shield-check" :size="14" />
+          <span>
+            {{
+              settings.locale === 'en'
+                ? '100% offline execution. No telemetry, no network calls, preferences stored locally.'
+                : '100% 本地离线运行，无埋点、无网络请求，所有数据与偏好仅保存在本机。'
+            }}
+          </span>
         </div>
       </div>
 
@@ -303,7 +185,7 @@ function patchAi(partial: Partial<FunDataSettings['ai']>) {
 .settings-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .setting-section {
@@ -314,12 +196,6 @@ function patchAi(partial: Partial<FunDataSettings['ai']>) {
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--bg-subtle);
-}
-
-.section-heading {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
 }
 
 .setting-row {
@@ -341,43 +217,14 @@ function patchAi(partial: Partial<FunDataSettings['ai']>) {
   gap: 8px;
 }
 
-.switch-label {
-  display: inline-flex;
+.privacy-note {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.smart-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-}
-
-.check-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 12px;
-  cursor: pointer;
-}
-
-.openai-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 6px;
-  border-top: 1px dashed var(--border);
-}
-
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.mini-label {
-  font-size: 11px;
-  color: var(--text-secondary);
 }
 </style>

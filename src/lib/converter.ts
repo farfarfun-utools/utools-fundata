@@ -611,7 +611,88 @@ function sanitizeForToml(value: unknown): unknown {
   return value
 }
 
-function detectConvertFormat(input: string): ConvertFormat {
+export const CONVERT_SAMPLES: Record<ConvertFormat, string> = {
+  json: JSON.stringify(
+    {
+      service: 'fundata-gateway',
+      version: '2.4.0',
+      tls: true,
+      server: { host: '0.0.0.0', port: 8443, timeoutMs: 3000 },
+      routes: [
+        { path: '/v1/convert', methods: ['POST'], rateLimit: 120 },
+        { path: '/v1/health', methods: ['GET'], rateLimit: 600 },
+      ],
+    },
+    null,
+    2,
+  ),
+  json5: `{
+  // FunData gateway config
+  service: 'fundata-gateway',
+  retries: 3,
+  features: ['convert', 'sql', 'cron',],
+}`,
+  yaml: [
+    'service: fundata-gateway',
+    'environment: production',
+    'server:',
+    '  host: 0.0.0.0',
+    '  port: 8443',
+    '  tls: true',
+    'routes:',
+    '  - path: /v1/convert',
+    '    methods: [POST]',
+    '    timeoutMs: 3000',
+    '  - path: /v1/health',
+    '    methods: [GET]',
+    '    timeoutMs: 1000',
+  ].join('\n'),
+  toml: [
+    'service = "fundata-gateway"',
+    'version = "2.4.0"',
+    '',
+    '[server]',
+    'host = "0.0.0.0"',
+    'port = 8443',
+    'tls = true',
+  ].join('\n'),
+  xml: [
+    '<gateway>',
+    '  <service>fundata-gateway</service>',
+    '  <server host="0.0.0.0">',
+    '    <port>8443</port>',
+    '    <tls>true</tls>',
+    '  </server>',
+    '</gateway>',
+  ].join('\n'),
+  csv: [
+    'id,name,role,region,score',
+    '1001,Alice Chen,admin,ap-east-1,96.5',
+    '1002,Bob Lin,developer,us-west-2,91.0',
+    '1003,Carol Wu,designer,eu-west-1,88.5',
+  ].join('\n'),
+  tsv: [
+    'id\tname\trole\tregion',
+    '1001\tAlice Chen\tadmin\tap-east-1',
+    '1002\tBob Lin\tdeveloper\tus-west-2',
+  ].join('\n'),
+  ini: [
+    'service = fundata-gateway',
+    'debug = false',
+    '',
+    '[server]',
+    'host = 0.0.0.0',
+    'port = 8443',
+  ].join('\n'),
+  ndjson: [
+    '{"id":1,"event":"login","ok":true}',
+    '{"id":2,"event":"convert","format":"yaml"}',
+    '{"id":3,"event":"export","bytes":4096}',
+  ].join('\n'),
+  query: 'service=fundata&page=1&limit=20&tag=offline&tag=fast',
+}
+
+export function detectConvertFormat(input: string): ConvertFormat {
   const trimmed = input.trim()
   if (!trimmed) return 'json'
 

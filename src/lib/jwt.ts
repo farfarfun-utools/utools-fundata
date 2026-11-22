@@ -1,4 +1,5 @@
 export type JwtStatus = 'valid' | 'expired' | 'not-yet-valid' | 'no-exp'
+export type JwtHmacAlgorithm = 'HS256' | 'HS384' | 'HS512'
 
 export interface DecodedJwt {
   raw: string
@@ -15,8 +16,28 @@ export interface DecodedJwt {
   payloadJson: string
 }
 
+export interface SignedJwtResult {
+  token: string
+  algorithm: JwtHmacAlgorithm
+  headerJson: string
+  payloadJson: string
+  signature: string
+}
+
 function stripBearer(token: string): string {
   return token.trim().replace(/^Bearer\s+/i, '').trim()
+}
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function encodeBase64UrlText(text: string): string {
+  return bytesToBase64Url(new TextEncoder().encode(text))
 }
 
 function base64UrlToBytes(segment: string): Uint8Array {
@@ -202,7 +223,7 @@ export function decodeJwt(token: string): DecodedJwt {
   }
 }
 
-const HMAC_ALGORITHMS: Record<string, 'SHA-256' | 'SHA-384' | 'SHA-512'> = {
+const HMAC_ALGORITHMS: Record<JwtHmacAlgorithm, 'SHA-256' | 'SHA-384' | 'SHA-512'> = {
   HS256: 'SHA-256',
   HS384: 'SHA-384',
   HS512: 'SHA-512',
@@ -223,7 +244,7 @@ export async function verifyJwtHmac(
     }
   }
 
-  const alg = decoded.algorithm.toUpperCase()
+  const alg = decoded.algorithm.toUpperCase() as JwtHmacAlgorithm
   const hash = HMAC_ALGORITHMS[alg]
   if (!hash) {
     return {
@@ -289,5 +310,72 @@ export async function verifyJwtHmac(
       algorithm: alg,
       reason: err instanceof Error ? err.message : 'Verification failed',
     }
+  }
+}
+
+export async function signJwtHmac(
+  headerInput: Record<string, unknown> | string,
+  payloadInput: Record<string, unknown> | string,
+  secret: string,
+  algorithmOverride?: JwtHmacAlgorithm,
+): Promise<SignedJwtResult> {
+  if (!secret) {
+    throw new Error('Secret is required to sign JWT')
+  }
+
+  const headerObj =
+    typeof headerInput === 'string'
+      ? (JSON.parse(headerInput) as Record<string, unknown>)
+      : { ...headerInput }
+  const payloadObj =
+    typeof payloadInput === 'string'
+      ? (JSON.parse(payloadInput) as Record<string, unknown>)
+      : { ...payloadInput }
+
+  if (!headerObj || typeof headerObj !== 'object' || Array.isArray(headerObj)) {
+    throw new Error('Header must be a JSON object')
+  }
+  if (!payloadObj || typeof payloadObj !== 'object' || Array.isArray(payloadObj)) {
+    throw new Error('Payload must be a JSON object')
+  }
+
+  const rawAlg = (algorithmOverride ?? String(headerObj.alg ?? 'HS256')).toUpperCase() as JwtHmacAlgorithm
+  const hash = HMAC_ALGORITHMS[rawAlg]
+  if (!hash) {
+    throw new Error(`Unsupported HMAC algorithm "${rawAlg}": use HS256, HS384, or HS512`)
+  }
+
+  const finalHeader: Record<string, unknown> = {
+    typ: 'JWT',
+    ...headerObj,
+    alg: rawAlg,
+  }
+
+  const subtle = globalThis.crypto?.subtle
+  if (!subtle) {
+    throw new Error('Web Crypto SubtleCrypto is unavailable in this environment')
+  }
+
+  const headerCompact = JSON.stringify(finalHeader)
+  const payloadCompact = JSON.stringify(payloadObj)
+  const signingInput = `${encodeBase64UrlText(headerCompact)}.${encodeBase64UrlText(payloadCompact)}`
+
+  const encoder = new TextEncoder()
+  const key = await subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: { name: hash } },
+    false,
+    ['sign'],
+  )
+  const sigBuffer = await subtle.sign('HMAC', key, encoder.encode(signingInput))
+  const signature = bytesToBase64Url(new Uint8Array(sigBuffer))
+
+  return {
+    token: `${signingInput}.${signature}`,
+    algorithm: rawAlg,
+    headerJson: JSON.stringify(finalHeader, null, 2),
+    payloadJson: JSON.stringify(payloadObj, null, 2),
+    signature,
   }
 }

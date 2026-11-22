@@ -1,358 +1,326 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CONVERT_FORMATS, convertFormat } from '../src/lib/converter'
+import { describe, expect, it } from 'vitest'
+import { convertFormat } from '../src/lib/converter'
+import { parseCron } from '../src/lib/cron'
+import {
+  computeAllHashes,
+  computeSingleHash,
+  generateIdBatch,
+  generateNanoId,
+  generateRandomBase64Url,
+  generateRandomHex,
+  generateUlid,
+  generateUuidV4,
+} from '../src/lib/crypto'
+import {
+  decodeText,
+  encodeText,
+  formatTimestamp,
+  parseDateToTimestamp,
+} from '../src/lib/decoders'
 import { computeDiff } from '../src/lib/diff'
-import {
-  DATA_FORMATS,
-  detectFormat,
-  detectIndent,
-  escapeJsonString,
-  formatContent,
-  getFormatMeta,
-  minifyContent,
-  parseJsonError,
-  parseJsonLike,
-  repairJsonLocal,
-  sortJsonKeys,
-  stripJsonComments,
-  unescapeJsonString,
-} from '../src/lib/formats'
-import { t } from '../src/lib/i18n'
-import { JSONPATH_EXAMPLES, runJsonPath } from '../src/lib/jsonpath'
-import {
-  autoTabName,
-  createDefaultWorkspace,
-  createTab,
-  loadWorkspace,
-  pushTabHistory,
-  SAMPLES,
-  saveWorkspace,
-} from '../src/lib/storage'
-import { exportTable, jsonToTable } from '../src/lib/table'
+import { decodeJwt, signJwtHmac, verifyJwtHmac } from '../src/lib/jwt'
+import { renumberProto } from '../src/lib/proto'
+import { evaluateRegex, REGEX_PRESETS } from '../src/lib/regex'
+import { formatSqlCode, minifySqlCode } from '../src/lib/sql'
+import { detectRouteForInput, SAMPLES } from '../src/lib/storage'
+import { computeTextStats, transformText } from '../src/lib/text-tools'
+import { convertBytes, convertColor, convertRadix, parseColor } from '../src/lib/units'
 
-describe('formats.ts', () => {
-  it('exposes complete metadata for all 18 data formats', () => {
-    expect(DATA_FORMATS).toHaveLength(18)
-    expect(getFormatMeta('json').isJsonLike).toBe(true)
-    expect(getFormatMeta('protobuf').ext).toBe('proto')
-  })
+describe('1. Converter (10 formats)', () => {
+  it('converts across JSON, JSON5, YAML, TOML, XML, CSV, TSV, INI, NDJSON and Query', () => {
+    const obj = { service: 'fundata', port: 8443, tls: true }
+    const json = JSON.stringify(obj)
 
-  it('detects format by filename priority and content heuristics', () => {
-    expect(detectFormat('plain text', 'config.toml')).toBe('toml')
-    expect(detectFormat('anything', '/tmp/service.proto')).toBe('protobuf')
-    expect(detectFormat('   ')).toBe('json')
-    expect(detectFormat('{"a": 1}')).toBe('json')
-    expect(detectFormat('// header\n{"a": 1 /* inline */}')).toBe('jsonc')
-    expect(detectFormat("{unquoted: 'hello', trailing: true,}")).toBe('json5')
-    expect(detectFormat('{"id":1}\n{"id":2}')).toBe('ndjson')
-    expect(detectFormat('<?xml version="1.0"?><root><item>1</item></root>')).toBe('xml')
-    expect(detectFormat('<!DOCTYPE html><html><body><div>Hi</div></body></html>')).toBe('html')
-    expect(detectFormat('syntax = "proto3";\nmessage Foo { string id = 1; }')).toBe('protobuf')
-    expect(detectFormat('SELECT id, name FROM users WHERE active = 1')).toBe('sql')
-    expect(detectFormat('[db]\nhost = "localhost"\nport = 5432')).toBe('toml')
-    expect(detectFormat('; config\n[db]\nhost = localhost\nport = 5432')).toBe('ini')
-    expect(detectFormat('name,age\nAlice,30\nBob,25')).toBe('csv')
-    expect(detectFormat('name\tage\nAlice\t30\nBob\t25')).toBe('tsv')
-    expect(detectFormat('service: demo\nport: 8080\n')).toBe('yaml')
-    expect(detectFormat('export interface User { id: string }')).toBe('typescript')
-    expect(detectFormat('const x = 42;\nexport function run() { return x }')).toBe('javascript')
-    expect(detectFormat('.card { color: red; padding: 8px; }')).toBe('css')
-    expect(detectFormat('# Title\n\nSome paragraph')).toBe('markdown')
-    expect(detectFormat('just a plain sentence without markers')).toBe('text')
-  })
-
-  it('detects indentation style accurately', () => {
-    expect(detectIndent('{\n  "a": 1\n}')).toBe('2')
-    expect(detectIndent('{\n    "a": 1\n}')).toBe('4')
-    expect(detectIndent('{\n\t"a": 1\n}')).toBe('tab')
-  })
-
-  it('strips comments while preserving comment-like text inside strings', () => {
-    const src = '{\n  "url": "https://example.com/*keep*/", // line comment\n  /* block\n  comment */\n  "escaped": "a \\" // b"\n}'
-    const stripped = stripJsonComments(src)
-    expect(JSON.parse(stripped)).toEqual({
-      url: 'https://example.com/*keep*/',
-      escaped: 'a " // b',
-    })
-  })
-
-  it('parses JSON, JSONC, JSON5 and reports detailed JSON errors', () => {
-    expect(parseJsonLike('{"a": 1}')).toEqual({ a: 1 })
-    expect(parseJsonLike('/* c */ {"a": 1}')).toEqual({ a: 1 })
-    expect(parseJsonLike("{a: 'ok',}")).toEqual({ a: 'ok' })
-
-    expect(parseJsonError('{"ok": true}')).toEqual({ valid: true })
-    const emptyErr = parseJsonError('   ')
-    expect(emptyErr.valid).toBe(false)
-    expect(emptyErr.line).toBe(1)
-
-    const badErr = parseJsonError('{\n  "a": 1,\n  "b": \n}')
-    expect(badErr.valid).toBe(false)
-    expect(badErr.message).toBeTruthy()
-    expect(badErr.line).toBeGreaterThanOrEqual(1)
-    expect(badErr.column).toBeGreaterThanOrEqual(1)
-  })
-
-  it('formats, minifies, sorts keys, escapes/unescapes, and repairs JSON locally', () => {
-    expect(formatContent('{"a":1,"b":[2]}', 'json', '4')).toContain('    "a": 1')
-    expect(formatContent("{a:1,b:'x',}", 'json5', '2')).toContain("b: 'x'")
-    expect(formatContent('a: 1\nb:\n  c: 2', 'yaml', '2')).toContain('c: 2')
-    expect(formatContent('<root><item>1</item></root>', 'xml', '2')).toContain('\n  <item>1</item>\n')
-    expect(formatContent('select a,b from users where id=1', 'sql', '2')).toContain('SELECT')
-    expect(formatContent('message A {\nstring id = 1;\n}', 'protobuf', '2')).toBe(
-      'message A {\n  string id = 1;\n}',
-    )
-
-    expect(minifyContent('{\n  "a": 1,\n  "b": 2\n}', 'json')).toBe('{"a":1,"b":2}')
-    expect(minifyContent('<root>\n  <a>1</a>\n</root>', 'xml')).toBe('<root><a>1</a></root>')
-    expect(minifyContent('SELECT  a,  b\nFROM   users -- comment\nWHERE x = \'a  b\'', 'sql')).toBe(
-      "SELECT a, b FROM users WHERE x = 'a  b'",
-    )
-
-    const sortedAsc = sortJsonKeys('{"z":1,"a":{"d":2,"b":3}}', 'asc', '2')
-    expect(Object.keys(JSON.parse(sortedAsc))).toEqual(['a', 'z'])
-    expect(Object.keys(JSON.parse(sortedAsc).a)).toEqual(['b', 'd'])
-
-    const sortedDesc = sortJsonKeys('{"a":1,"z":2}', 'desc', '2')
-    expect(Object.keys(JSON.parse(sortedDesc))).toEqual(['z', 'a'])
-
-    const raw = '{"msg":"hello\n\\"world\\""}'
-    const escaped = escapeJsonString(raw)
-    expect(unescapeJsonString(escaped)).toBe(raw)
-    expect(unescapeJsonString(JSON.stringify(raw))).toBe(raw)
-
-    const repaired = repairJsonLocal("{name: 'FunData', items: [1, 2,],}")
-    expect(repaired.changed).toBe(true)
-    expect(JSON.parse(repaired.output)).toEqual({ name: 'FunData', items: [1, 2] })
-  })
-})
-
-describe('converter.ts', () => {
-  it('supports all 10 data formats and lossless round-trips', () => {
-    expect(CONVERT_FORMATS).toHaveLength(10)
-
-    const sampleObj = { name: 'FunData', version: 1, enabled: true, tags: ['a', 'b'] }
-    const jsonStr = JSON.stringify(sampleObj)
-
-    // JSON <-> YAML
-    const toYaml = convertFormat(jsonStr, 'auto', 'yaml')
+    const toYaml = convertFormat(json, 'auto', 'yaml')
     expect(toYaml.detectedFrom).toBe('json')
-    const backFromYaml = convertFormat(toYaml.output, 'yaml', 'json')
-    expect(JSON.parse(backFromYaml.output)).toEqual(sampleObj)
+    expect(toYaml.output).toContain('service: fundata')
 
-    // JSON <-> TOML
-    const toToml = convertFormat(jsonStr, 'json', 'toml')
-    const backFromToml = convertFormat(toToml.output, 'toml', 'json')
-    expect(JSON.parse(backFromToml.output)).toEqual(sampleObj)
+    const toToml = convertFormat(toYaml.output, 'auto', 'toml')
+    expect(toToml.detectedFrom).toBe('yaml')
+    expect(toToml.output).toContain('port = 8443')
 
-    // JSON <-> JSON5
-    const toJson5 = convertFormat(jsonStr, 'json', 'json5')
-    const backFromJson5 = convertFormat(toJson5.output, 'json5', 'json')
-    expect(JSON.parse(backFromJson5.output)).toEqual(sampleObj)
+    const toXml = convertFormat(toToml.output, 'toml', 'xml')
+    expect(toXml.output).toContain('<service>fundata</service>')
 
-    // XML <-> JSON with attributes and repeated children
-    const xml = '<catalog id="c1"><book>Alpha</book><book>Beta</book></catalog>'
-    const xmlToJson = convertFormat(xml, 'auto', 'json')
-    expect(xmlToJson.detectedFrom).toBe('xml')
-    expect(JSON.parse(xmlToJson.output)).toEqual({
-      catalog: {
-        '@attributes': { id: 'c1' },
-        book: ['Alpha', 'Beta'],
-      },
-    })
-    const backToXml = convertFormat(xmlToJson.output, 'json', 'xml')
-    expect(backToXml.output).toContain('<catalog id="c1">')
-    expect(backToXml.output).toContain('<book>Alpha</book>')
+    const fromXml = convertFormat(toXml.output, 'auto', 'json')
+    expect(fromXml.detectedFrom).toBe('xml')
+    expect(JSON.parse(fromXml.output)).toEqual({ root: obj })
 
-    // CSV & TSV with quoted commas/quotes
-    const csv = 'name,note\n"Alice, Jr.","Says ""hi"""\nBob,Simple'
-    const csvToJson = convertFormat(csv, 'auto', 'json')
-    expect(csvToJson.detectedFrom).toBe('csv')
-    expect(JSON.parse(csvToJson.output)).toEqual([
-      { name: 'Alice, Jr.', note: 'Says "hi"' },
-      { name: 'Bob', note: 'Simple' },
-    ])
-    const jsonToTsv = convertFormat(csvToJson.output, 'json', 'tsv')
-    expect(JSON.parse(convertFormat(jsonToTsv.output, 'tsv', 'json').output)).toEqual([
-      { name: 'Alice, Jr.', note: 'Says "hi"' },
-      { name: 'Bob', note: 'Simple' },
-    ])
+    const toIni = convertFormat(json, 'json', 'ini')
+    expect(toIni.output).toContain('service = fundata')
+    const fromIni = convertFormat(toIni.output, 'ini', 'json')
+    expect(JSON.parse(fromIni.output)).toEqual(obj)
 
-    // INI <-> JSON with sections
-    const ini = 'app = demo\n\n[db]\nhost = localhost\nport = 5432\nssl = true'
-    const iniToJson = convertFormat(ini, 'ini', 'json')
-    expect(JSON.parse(iniToJson.output)).toEqual({
-      app: 'demo',
-      db: { host: 'localhost', port: 5432, ssl: true },
-    })
-    const backToIni = convertFormat(iniToJson.output, 'json', 'ini')
-    expect(backToIni.output).toContain('[db]')
-    expect(backToIni.output).toContain('port = 5432')
+    const csv = 'id,name\n1,Alice\n2,Bob'
+    const fromCsv = convertFormat(csv, 'auto', 'ndjson')
+    expect(fromCsv.detectedFrom).toBe('csv')
+    expect(fromCsv.output.split('\n')).toHaveLength(2)
 
-    // NDJSON <-> JSON
-    const ndjson = '{"id":1}\n{"id":2}'
-    const ndToJson = convertFormat(ndjson, 'auto', 'json')
-    expect(ndToJson.detectedFrom).toBe('ndjson')
-    expect(JSON.parse(ndToJson.output)).toEqual([{ id: 1 }, { id: 2 }])
-    expect(convertFormat(ndToJson.output, 'json', 'ndjson').output).toBe(ndjson)
+    const toTsv = convertFormat(fromCsv.output, 'auto', 'tsv')
+    expect(toTsv.detectedFrom).toBe('ndjson')
+    expect(toTsv.output).toContain('id\tname')
 
-    // URL Query <-> JSON
-    const query = '?q=hello+world&tag=json&tag=yaml'
-    const queryToJson = convertFormat(query, 'auto', 'json')
-    expect(queryToJson.detectedFrom).toBe('query')
-    expect(JSON.parse(queryToJson.output)).toEqual({
-      q: 'hello world',
-      tag: ['json', 'yaml'],
-    })
-    const backToQuery = convertFormat(queryToJson.output, 'json', 'query')
-    expect(backToQuery.output).toBe('q=hello%20world&tag=json&tag=yaml')
+    const q = convertFormat('a=1&b=hello%20world&tag=x&tag=y', 'auto', 'json')
+    expect(q.detectedFrom).toBe('query')
+    expect(JSON.parse(q.output)).toEqual({ a: '1', b: 'hello world', tag: ['x', 'y'] })
+
+    const json5Out = convertFormat(json, 'json', 'json5')
+    expect(json5Out.output).toContain("service: 'fundata'")
   })
 })
 
-describe('jsonpath.ts', () => {
-  it('evaluates RFC 9535 expressions and provides 6 curated examples', () => {
-    expect(JSONPATH_EXAMPLES).toHaveLength(6)
-    for (const example of JSONPATH_EXAMPLES) {
-      const res = runJsonPath(SAMPLES.json, example.expression)
-      expect(res.error).toBeUndefined()
-      expect(res.count).toBeGreaterThan(0)
+describe('2. Decoders & Timestamps', () => {
+  it('encodes and decodes Base64, URL, Unicode, HTML, Hex, JSON String losslessly', () => {
+    const sample = '数形万变 <FunData> "a&b" 100%'
+    for (const kind of ['base64', 'url', 'unicode', 'html', 'hex', 'json-string'] as const) {
+      const encoded = encodeText(sample, kind)
+      expect(decodeText(encoded, kind)).toBe(sample)
     }
+  })
 
-    const filtered = runJsonPath(SAMPLES.json, '$.users[?@.score >= 95].name')
-    expect(filtered.results).toEqual(['Alice Chen'])
-    expect(filtered.count).toBe(1)
+  it('formats Unix seconds/milliseconds across 5 timezones and parses dates', () => {
+    const info = formatTimestamp('1700000000', 'UTC')
+    expect(info).not.toBeNull()
+    expect(info?.seconds).toBe(1700000000)
+    expect(info?.milliseconds).toBe(1700000000000)
+    expect(info?.iso).toBe('2023-11-14T22:13:20.000Z')
+    expect(info?.rfc2822).toContain('2023')
+    expect(info?.zones).toHaveLength(5)
+    expect(info?.zones.find((z) => z.timeZone === 'Asia/Shanghai')?.formatted).toBe(
+      '2023-11-15 06:13:20',
+    )
 
-    const invalidExpr = runJsonPath(SAMPLES.json, '$.users[?bad')
-    expect(invalidExpr.error).toBeTruthy()
-    expect(invalidExpr.count).toBe(0)
-
-    const emptyExpr = runJsonPath(SAMPLES.json, '   ')
-    expect(emptyExpr.error).toBeTruthy()
+    const parsed = parseDateToTimestamp('2023-11-14T22:13:20.000Z')
+    expect(parsed?.seconds).toBe(1700000000)
   })
 })
 
-describe('diff.ts', () => {
-  it('computes line diffs and semantic JSON diffs ignoring key order', () => {
-    const left = '{"b": 2, "a": 1}'
-    const right = '{"a": 1, "b": 2}'
+describe('3. JWT Decode, Verify & Sign', () => {
+  it('decodes sample JWT preserving BigInt snowflakeId and verifies HS256', async () => {
+    const decoded = decodeJwt(SAMPLES.jwt)
+    expect(decoded.algorithm).toBe('HS256')
+    expect(decoded.payload.snowflakeId).toBe('9007199254740999')
+    expect(decoded.status).toBe('valid')
 
-    const rawDiff = computeDiff(left, right)
-    expect(rawDiff.stats.modified).toBe(1)
-    expect(rawDiff.semanticApplied).toBe(false)
+    const ok = await verifyJwtHmac(SAMPLES.jwt, 'fundata-secret')
+    expect(ok.valid).toBe(true)
 
-    const semanticDiff = computeDiff(left, right, { semanticJson: true })
-    expect(semanticDiff.semanticApplied).toBe(true)
-    expect(semanticDiff.stats.added).toBe(0)
-    expect(semanticDiff.stats.removed).toBe(0)
-    expect(semanticDiff.stats.modified).toBe(0)
+    const bad = await verifyJwtHmac(SAMPLES.jwt, 'wrong-secret')
+    expect(bad.valid).toBe(false)
+  })
 
-    const changed = computeDiff('line1\nline2\nline3', 'line1\nline2-mod\nline3\nline4')
-    expect(changed.stats.modified).toBe(1)
-    expect(changed.stats.added).toBe(1)
-    expect(changed.stats.unchanged).toBe(2)
-    expect(changed.unified).toContain('+ line4')
+  it('signs and verifies HS256 / HS384 / HS512 JWT offline', async () => {
+    for (const alg of ['HS256', 'HS384', 'HS512'] as const) {
+      const signed = await signJwtHmac(
+        { typ: 'JWT' },
+        { sub: 'u_99', name: '测试用户', exp: 4102444800 },
+        'my-super-secret',
+        alg,
+      )
+      expect(signed.token.split('.')).toHaveLength(3)
+      const verified = await verifyJwtHmac(signed.token, 'my-super-secret')
+      expect(verified.valid).toBe(true)
+      expect(verified.algorithm).toBe(alg)
+      const decoded = decodeJwt(signed.token)
+      expect(decoded.payload.name).toBe('测试用户')
+    }
   })
 })
 
-describe('table.ts', () => {
-  it('converts array of objects, single object, and array of primitives and exports formats', () => {
-    const arrTable = jsonToTable('[{"id":1,"name":"Alice"},{"id":2,"name":"Bob","extra":"x"}]')
-    expect(arrTable.columns).toEqual(['id', 'name', 'extra'])
-    expect(arrTable.rows).toHaveLength(2)
-    expect(arrTable.rows[0].extra).toBe('')
+describe('4. Protobuf Renumber', () => {
+  it('renumbers message/enum/oneof while skipping reserved & 19000..19999 and keeping allow_alias', () => {
+    const res = renumberProto(SAMPLES.protobuf)
+    expect(res.changes).toBeGreaterThan(0)
+    expect(res.output).toContain('JOB_STATUS_UNSPECIFIED = 0;')
+    expect(res.output).toContain('JOB_STATUS_PENDING = 1;')
+    expect(res.output).toContain('JOB_STATUS_QUEUED = 1;')
+    expect(res.output).toContain('JOB_STATUS_DONE = 2;')
+    expect(res.output).toContain('string job_id = 1;')
+    // reserved 2, 4 to 6 -> skips 2, next is 3, then skips 4..6, next is 7, 8, 9
+    expect(res.output).toContain('JobStatus status = 3;')
+    expect(res.output).toContain('string raw_json = 7;')
+    expect(res.output).toContain('bytes binary_data = 8;')
+    expect(res.output).toContain('map<string, string> labels = 9;')
+  })
 
-    const objTable = jsonToTable('{"host":"localhost","port":8080}')
-    expect(objTable.columns).toEqual(['host', 'port'])
-    expect(objTable.rows).toEqual([{ host: 'localhost', port: '8080' }])
+  it('skips protobuf internal reserved range 19000..19999', () => {
+    const proto = [
+      'message Big {',
+      '  reserved 1 to 18999;',
+      '  string a = 50;',
+      '}',
+    ].join('\n')
+    const res = renumberProto(proto)
+    expect(res.output).toContain('string a = 20000;')
+  })
+})
 
-    const primTable = jsonToTable('[10, 20, 30]')
-    expect(primTable.columns).toEqual(['value'])
-    expect(primTable.rows.map((r) => r.value)).toEqual(['10', '20', '30'])
+describe('5. SQL Formatter & Minifier', () => {
+  it('formats and minifies SQL queries cleanly', () => {
+    const raw = `select id, name from users where status = 'active -- keep' order by id desc;`
+    const formatted = formatSqlCode(raw, { dialect: 'mysql', keywordCase: 'upper', tabWidth: 2 })
+    expect(formatted).toContain('SELECT')
+    expect(formatted).toContain('\n')
 
-    const csv = exportTable(arrTable.columns, arrTable.rows, 'csv')
-    expect(csv).toBe('id,name,extra\n1,Alice,\n2,Bob,x')
-    const tsv = exportTable(arrTable.columns, arrTable.rows, 'tsv')
-    expect(tsv).toBe('id\tname\textra\n1\tAlice\t\n2\tBob\tx')
-    const md = exportTable(arrTable.columns, arrTable.rows, 'markdown')
-    expect(md).toContain('| id | name | extra |')
-    expect(md).toContain('| --- | --- | --- |')
-    const jsonOut = exportTable(arrTable.columns, arrTable.rows, 'json')
-    expect(JSON.parse(jsonOut)).toEqual(arrTable.rows)
+    const minified = minifySqlCode(`${formatted}\n-- trailing comment\n/* block */`)
+    expect(minified).not.toContain('\n')
+    expect(minified).toContain("'active -- keep'")
+    expect(minified).not.toContain('trailing comment')
+  })
+})
 
-    const bad = jsonToTable('{invalid')
+describe('6. Crypto Hash / HMAC & ID Generators', () => {
+  it('computes RFC 1321 MD5 and Web Crypto SHA-1/256/384/512 + HMAC', async () => {
+    expect(await computeSingleHash('', 'md5')).toBe('d41d8cd98f00b204e9800998ecf8427e')
+    expect(await computeSingleHash('abc', 'md5')).toBe('900150983cd24fb0d6963f7d28e17f72')
+    expect(await computeSingleHash('abc', 'sha256')).toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    )
+    expect(await computeSingleHash('abc', 'sha256', { encoding: 'HEX' })).toBe(
+      'BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD',
+    )
+
+    // RFC 2104 / RFC 4231 HMAC test vector
+    expect(
+      await computeSingleHash('what do ya want for nothing?', 'md5', { hmacKey: 'Jefe' }),
+    ).toBe('750c783e6ab0b503eaa86e310a5db738')
+
+    const all = await computeAllHashes('FunData', { hmacKey: 'secret' })
+    expect(all).toHaveLength(5)
+    expect(all.every((r) => r.value.length >= 32)).toBe(true)
+  })
+
+  it('generates valid UUID v4, ULID, NanoID, Random Hex and Base64URL secrets', () => {
+    expect(generateUuidV4()).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    )
+    expect(generateUlid(1700000000000)).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+    expect(generateNanoId(16)).toMatch(/^[A-Za-z0-9_-]{16}$/)
+    expect(generateRandomHex(64)).toMatch(/^[0-9a-f]{64}$/)
+    expect(generateRandomBase64Url(32)).toMatch(/^[A-Za-z0-9_-]+$/)
+    expect(generateIdBatch('uuid', 10)).toHaveLength(10)
+  })
+})
+
+describe('7. Regex Lab', () => {
+  it('evaluates matches, XSS-safe segments, capture groups, replace preview and guards zero-length loops', () => {
+    const emailPreset = REGEX_PRESETS[0]
+    const res = evaluateRegex(
+      emailPreset.pattern,
+      emailPreset.flags,
+      emailPreset.sampleText,
+      emailPreset.replacement,
+    )
+    expect(res.valid).toBe(true)
+    expect(res.count).toBe(2)
+    expect(res.matches[0].groups).toEqual(['support', 'farfarfun.dev'])
+    expect(res.segments.filter((s) => s.isMatch)).toHaveLength(2)
+    expect(res.replaced).toContain('support [at] farfarfun.dev')
+
+    // Zero-length match must not hang
+    const zeroLen = evaluateRegex('a*', ['g'], 'bb')
+    expect(zeroLen.valid).toBe(true)
+    expect(zeroLen.count).toBe(3)
+
+    // Invalid regex returns structured error
+    const bad = evaluateRegex('([unclosed', ['g'], 'abc')
+    expect(bad.valid).toBe(false)
     expect(bad.error).toBeTruthy()
   })
 })
 
-describe('i18n.ts & storage.ts', () => {
-  beforeEach(() => {
-    const store = new Map<string, string>()
-    const mockStorage: Storage = {
-      get length() {
-        return store.size
-      },
-      clear: () => store.clear(),
-      getItem: (key: string) => store.get(key) ?? null,
-      key: (index: number) => Array.from(store.keys())[index] ?? null,
-      removeItem: (key: string) => {
-        store.delete(key)
-      },
-      setItem: (key: string, value: string) => {
-        store.set(key, String(value))
-      },
-    }
-    vi.stubGlobal('localStorage', mockStorage)
-    Object.defineProperty(window, 'localStorage', {
-      value: mockStorage,
-      configurable: true,
-      writable: true,
-    })
+describe('8. Cron Parser', () => {
+  it('parses 5-field and 6-field Cron expressions and calculates next 10 exact runs', () => {
+    const base = new Date('2026-01-01T00:00:00.000Z') // Thu 08:00 Asia/Shanghai
+    const res5 = parseCron('0 9 * * 1-5', { count: 10, timeZone: 'Asia/Shanghai', fromDate: base })
+    expect(res5.valid).toBe(true)
+    expect(res5.fieldCount).toBe(5)
+    expect(res5.fields).toHaveLength(5)
+    expect(res5.nextRuns).toHaveLength(10)
+    expect(res5.nextRuns[0].formatted).toBe('2026-01-01 09:00:00')
+    expect(res5.nextRuns[1].formatted).toBe('2026-01-02 09:00:00')
+    // Skips Saturday Jan 3 & Sunday Jan 4 -> Monday Jan 5
+    expect(res5.nextRuns[2].formatted).toBe('2026-01-05 09:00:00')
+    expect(res5.descriptionZh).toContain('09:00')
+    expect(res5.descriptionEn).toContain('09:00')
+
+    const res6 = parseCron('*/30 * * * * *', { count: 4, timeZone: 'UTC', fromDate: base })
+    expect(res6.valid).toBe(true)
+    expect(res6.fieldCount).toBe(6)
+    expect(res6.nextRuns[0].formatted).toBe('2026-01-01 00:00:30')
+    expect(res6.nextRuns[1].formatted).toBe('2026-01-01 00:01:00')
+
+    const invalid = parseCron('99 * * * *')
+    expect(invalid.valid).toBe(false)
+  })
+})
+
+describe('9. Color, BigInt Radix & Byte Units', () => {
+  it('converts colors across HEX/RGB/HSL with WCAG contrast', () => {
+    const parsed = parseColor('#6D4AFF')
+    expect(parsed).toEqual({ r: 109, g: 74, b: 255, a: 1 })
+    const res = convertColor(parsed!)
+    expect(res.hex).toBe('#6D4AFF')
+    expect(res.rgb).toBe('rgb(109, 74, 255)')
+    expect(res.contrastWhite).toBeGreaterThan(4.5)
+    expect(res.gradeWhite).toBe('AA')
+
+    const fromHsl = parseColor('hsl(120, 100%, 50%)')
+    expect(fromHsl).toEqual({ r: 0, g: 255, b: 0, a: 1 })
   })
 
-  afterEach(() => {
-    vi.unstubAllGlobals()
+  it('converts BigInt values accurately across bases 2/8/10/16/36', () => {
+    const res = convertRadix('9007199254740993', 10)
+    expect(res).not.toBeNull()
+    expect(res?.decimal).toBe('9007199254740993')
+    expect(res?.hex).toBe('20000000000001')
+    expect(convertRadix(res!.hex, 16)?.decimal).toBe('9007199254740993')
+    expect(convertRadix(res!.binary, 2)?.base36).toBe(res!.base36)
   })
 
-  it('translates zh-CN and en keys with parameter interpolation', () => {
-    expect(t('zh-CN', 'app.name')).toBe('数形万变')
-    expect(t('en', 'app.name')).toBe('FunData')
-    expect(t('en', 'status.matches', { count: 4 })).toBe('4 matches')
-    expect(t('zh-CN', 'status.lineCol', { line: 3, column: 7 })).toBe('第 3 行，第 7 列')
-    expect(t('en', 'non.existent.key')).toBe('non.existent.key')
+  it('converts byte units in both IEC (1024) and SI (1000)', () => {
+    const iec = convertBytes(1, 'GB', 'iec')
+    expect(iec.find((r) => r.unit === 'MB')?.value).toBe(1024)
+    expect(iec.find((r) => r.unit === 'B')?.value).toBe(1024 ** 3)
+
+    const si = convertBytes(1, 'GB', 'si')
+    expect(si.find((r) => r.unit === 'MB')?.value).toBe(1000)
+  })
+})
+
+describe('10. Text Diff, Batch Ops & Smart Auto-Routing', () => {
+  it('computes dual-line diff with ignoreWhitespace option', () => {
+    const d1 = computeDiff('a\nb\nc', 'a\n  b  \nc\nd', { ignoreWhitespace: false })
+    expect(d1.stats.modified).toBe(1)
+    expect(d1.stats.added).toBe(1)
+
+    const d2 = computeDiff('a\nb\nc', 'a\n  b  \nc\nd', { ignoreWhitespace: true })
+    expect(d2.stats.modified).toBe(0)
+    expect(d2.stats.added).toBe(1)
   })
 
-  it('persists workspace, generates smart tab names, and manages history snapshots', () => {
-    const initial = loadWorkspace()
-    expect(initial.tabs.length).toBeGreaterThanOrEqual(1)
+  it('runs batch transforms and calculates Top 10 line frequency', () => {
+    const deduped = transformText('b\na\nb\n', 'dedupe')
+    expect(deduped).toBe('b\na\n')
+    expect(transformText('b\na\nc', 'sort-asc')).toBe('a\nb\nc')
+    expect(transformText('a\n\nb', 'remove-empty')).toBe('a\nb')
+    expect(transformText('a\nb', 'affix', { prefix: '[', suffix: ']' })).toBe('[a]\n[b]')
 
-    const tab = createTab({ content: '{"service": "billing-api"}', format: 'json' })
-    expect(autoTabName(tab.content, 'json')).toBe('billing-api')
-    expect(autoTabName('[1,2,3]', 'json')).toBe('Array[3]')
-    expect(autoTabName('message OrderEvent { string id = 1; }', 'protobuf')).toBe('OrderEvent.proto')
-    expect(autoTabName('<invoice><id>1</id></invoice>', 'xml')).toBe('<invoice>')
+    const stats = computeTextStats('foo\nbar\nfoo\nbaz\nfoo')
+    expect(stats.lines).toBe(5)
+    expect(stats.topLines[0]).toEqual({ line: 'foo', count: 3, percent: 60 })
+  })
 
-    const withHist1 = pushTabHistory(tab, 'initial')
-    expect(withHist1.history).toHaveLength(1)
-    // Duplicate snapshot is ignored
-    const withHistDup = pushTabHistory(withHist1, 'dup')
-    expect(withHistDup.history).toHaveLength(1)
-    // Modified content pushes new snapshot
-    const withHist2 = pushTabHistory({ ...withHist1, content: '{"service":"v2"}' }, 'edit')
-    expect(withHist2.history).toHaveLength(2)
-
-    const ws = createDefaultWorkspace()
-    ws.tabs.push(withHist2)
-    ws.activeTabId = withHist2.id
-    ws.viewMode = 'table'
-    saveWorkspace(ws)
-
-    const reloaded = loadWorkspace()
-    expect(reloaded.activeTabId).toBe(withHist2.id)
-    expect(reloaded.viewMode).toBe('table')
-    expect(reloaded.tabs).toHaveLength(2)
-
-    // Handles corrupted localStorage gracefully
-    localStorage.setItem('fundata.workspace.v1', '{broken-json')
-    const recovered = loadWorkspace()
-    expect(recovered.tabs).toHaveLength(1)
+  it('routes selected text & filenames to the right studio tool', () => {
+    expect(detectRouteForInput(SAMPLES.jwt).tool).toBe('jwt')
+    expect(detectRouteForInput('*/5 * * * *').tool).toBe('cron')
+    expect(detectRouteForInput('SELECT * FROM users WHERE id = 1').tool).toBe('sql')
+    expect(detectRouteForInput(SAMPLES.protobuf).tool).toBe('proto')
+    expect(detectRouteForInput('name: alice\nport: 80').tool).toBe('convert')
+    expect(detectRouteForInput('1700000000').tool).toBe('encoding')
+    expect(detectRouteForInput('#6D4AFF').tool).toBe('units')
+    expect(detectRouteForInput('just some plain notes').tool).toBe('text')
+    expect(detectRouteForInput('raw', 'schema.proto').tool).toBe('proto')
+    expect(detectRouteForInput('raw', 'init.sql').tool).toBe('sql')
   })
 })

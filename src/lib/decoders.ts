@@ -1,20 +1,28 @@
 export type EncodingKind = 'base64' | 'url' | 'unicode' | 'html' | 'hex' | 'json-string'
 
+export interface TimestampZoneEntry {
+  timeZone: string
+  label: string
+  formatted: string
+}
+
 export interface TimestampInfo {
   seconds: number
   milliseconds: number
   iso: string
+  rfc2822: string
   local: string
   relative: string
+  zones: TimestampZoneEntry[]
 }
 
-export interface SmartInspection {
-  kind: 'timestamp' | 'base64' | 'url' | 'unicode' | 'json-string' | 'color'
-  label: string
-  value: string
-  detail?: string
-  previewColor?: string
-}
+export const MULTI_TIMEZONES: Array<{ id: string; label: string }> = [
+  { id: 'Asia/Shanghai', label: '上海 CST' },
+  { id: 'UTC', label: 'UTC' },
+  { id: 'America/New_York', label: '纽约 EST/EDT' },
+  { id: 'Europe/London', label: '伦敦 GMT/BST' },
+  { id: 'Asia/Tokyo', label: '东京 JST' },
+]
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ''
@@ -102,6 +110,7 @@ export function decodeText(input: string, kind: EncodingKind): string {
         .replace(/&nbsp;/g, ' ')
         .replace(/&quot;/g, '"')
         .replace(/&apos;/g, "'")
+        .replace(/&#39;/g, "'")
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&amp;/g, '&')
@@ -128,7 +137,31 @@ export function decodeText(input: string, kind: EncodingKind): string {
   }
 }
 
-function formatRelativeTime(diffMs: number): string {
+export function formatDateInTimeZone(date: Date, timeZone?: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      ...(timeZone ? { timeZone } : {}),
+    }).formatToParts(date)
+
+    const map: Record<string, string> = {}
+    for (const part of parts) {
+      map[part.type] = part.value
+    }
+    const hh = map.hour === '24' ? '00' : map.hour
+    return `${map.year}-${map.month}-${map.day} ${hh}:${map.minute}:${map.second}`
+  } catch {
+    return date.toISOString().replace('T', ' ').slice(0, 19)
+  }
+}
+
+export function formatRelativeTime(diffMs: number): string {
   const abs = Math.abs(diffMs)
   const future = diffMs > 0
   if (abs < 5000) return 'just now'
@@ -154,7 +187,7 @@ function formatRelativeTime(diffMs: number): string {
 
 export function formatTimestamp(
   ts: number | string,
-  timeZone?: string,
+  timeZone = 'Asia/Shanghai',
 ): TimestampInfo | null {
   const raw = typeof ts === 'string' ? ts.trim() : String(ts)
   if (!/^-?\d+(?:\.\d+)?$/.test(raw)) return null
@@ -168,36 +201,33 @@ export function formatTimestamp(
   if (Number.isNaN(date.getTime())) return null
 
   const iso = date.toISOString()
-  let local: string
-  try {
-    local = new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-      ...(timeZone ? { timeZone } : {}),
-    }).format(date)
-  } catch {
-    local = date.toLocaleString()
-  }
-
+  const rfc2822 = date.toUTCString()
+  const local = formatDateInTimeZone(date, timeZone)
   const relative = formatRelativeTime(milliseconds - Date.now())
-  return { seconds, milliseconds, iso, local, relative }
+  const zones: TimestampZoneEntry[] = MULTI_TIMEZONES.map((z) => ({
+    timeZone: z.id,
+    label: z.label,
+    formatted: formatDateInTimeZone(date, z.id),
+  }))
+
+  return { seconds, milliseconds, iso, rfc2822, local, relative, zones }
 }
 
 export function parseDateToTimestamp(
   input: string,
-): { seconds: number; milliseconds: number; iso: string } | null {
+): { seconds: number; milliseconds: number; iso: string; rfc2822: string } | null {
   const trimmed = input.trim()
   if (!trimmed) return null
 
   if (/^-?\d{10}$/.test(trimmed) || /^-?\d{13}$/.test(trimmed)) {
     const info = formatTimestamp(trimmed)
     return info
-      ? { seconds: info.seconds, milliseconds: info.milliseconds, iso: info.iso }
+      ? {
+          seconds: info.seconds,
+          milliseconds: info.milliseconds,
+          iso: info.iso,
+          rfc2822: info.rfc2822,
+        }
       : null
   }
 
@@ -211,142 +241,6 @@ export function parseDateToTimestamp(
     seconds: Math.trunc(ms / 1000),
     milliseconds: ms,
     iso: date.toISOString(),
+    rfc2822: date.toUTCString(),
   }
-}
-
-const COLOR_REGEX =
-  /^(?:#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|rgba?\(\s*\d{1,3}%?\s*,\s*\d{1,3}%?\s*,\s*\d{1,3}%?(?:\s*,\s*(?:0|1|0?\.\d+|\d{1,3}%))?\s*\)|hsla?\(\s*\d{1,3}(?:deg|rad|turn)?\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%(?:\s*,\s*(?:0|1|0?\.\d+|\d{1,3}%))?\s*\))$/i
-
-function isMostlyPrintable(text: string): boolean {
-  if (!text) return false
-  let printable = 0
-  for (let i = 0; i < text.length; i += 1) {
-    const code = text.charCodeAt(i)
-    if (code === 0xfffd) return false
-    if (code === 9 || code === 10 || code === 13 || (code >= 32 && code !== 127)) {
-      printable += 1
-    }
-  }
-  return printable / text.length >= 0.9
-}
-
-export function inspectToken(raw: string, timeZone?: string): SmartInspection[] {
-  const trimmed = raw.trim()
-  if (!trimmed) return []
-
-  let value = trimmed
-  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
-    try {
-      const parsed = JSON.parse(trimmed)
-      if (typeof parsed === 'string') {
-        value = parsed
-      }
-    } catch {
-      // keep trimmed
-    }
-  }
-
-  const findings: SmartInspection[] = []
-
-  // 1. Timestamp (10-digit seconds or 13-digit milliseconds)
-  if (/^\d{10}$/.test(value) || /^\d{13}$/.test(value)) {
-    const info = formatTimestamp(value, timeZone)
-    if (info) {
-      findings.push({
-        kind: 'timestamp',
-        label: value.length === 13 ? 'Unix Timestamp (ms)' : 'Unix Timestamp (s)',
-        value: info.local,
-        detail: `${info.iso} (${info.relative})`,
-      })
-    }
-  }
-
-  // 2. Color (HEX / RGB / HSL)
-  if (COLOR_REGEX.test(value)) {
-    findings.push({
-      kind: 'color',
-      label: 'Color',
-      value,
-      previewColor: value,
-    })
-  }
-
-  // 3. Unicode escape sequences
-  if (/\\u(?:[0-9a-fA-F]{4}|\{[0-9a-fA-F]+\})/.test(trimmed)) {
-    const decoded = decodeText(trimmed.startsWith('"') && trimmed.endsWith('"') ? trimmed.slice(1, -1) : trimmed, 'unicode')
-    if (decoded !== value && decoded !== trimmed) {
-      findings.push({
-        kind: 'unicode',
-        label: 'Unicode Decoded',
-        value: decoded,
-      })
-    }
-  }
-
-  // 4. URL encoded string
-  if (/%[0-9a-fA-F]{2}/.test(value)) {
-    try {
-      const decoded = decodeText(value, 'url')
-      if (decoded !== value) {
-        findings.push({
-          kind: 'url',
-          label: 'URL Decoded',
-          value: decoded,
-        })
-      }
-    } catch {
-      // ignore invalid percent encoding
-    }
-  }
-
-  // 5. Embedded JSON string (object or array)
-  if (
-    (value.startsWith('{') && value.endsWith('}')) ||
-    (value.startsWith('[') && value.endsWith(']'))
-  ) {
-    try {
-      const parsed = JSON.parse(value)
-      if (parsed !== null && typeof parsed === 'object') {
-        findings.push({
-          kind: 'json-string',
-          label: 'Embedded JSON',
-          value: JSON.stringify(parsed, null, 2),
-        })
-      }
-    } catch {
-      // not valid embedded JSON
-    }
-  }
-
-  // 6. Base64 UTF-8 text
-  if (
-    value.length >= 8 &&
-    !/^\d+$/.test(value) &&
-    /^[A-Za-z0-9+/_-]+={0,2}$/.test(value) &&
-    value.length % 4 !== 1
-  ) {
-    const hasBase64Signal =
-      value.includes('=') ||
-      value.includes('+') ||
-      value.includes('/') ||
-      value.includes('_') ||
-      value.includes('-') ||
-      (/[A-Z]/.test(value) && /[a-z]/.test(value) && value.length % 4 === 0)
-    if (hasBase64Signal) {
-      try {
-        const decoded = decodeText(value, 'base64')
-        if (decoded && decoded !== value && isMostlyPrintable(decoded)) {
-          findings.push({
-            kind: 'base64',
-            label: 'Base64 Decoded',
-            value: decoded,
-          })
-        }
-      } catch {
-        // not valid UTF-8 base64
-      }
-    }
-  }
-
-  return findings
 }

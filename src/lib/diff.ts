@@ -1,5 +1,4 @@
 import { diffLines } from 'diff'
-import { sortJsonKeys } from './formats'
 
 export type DiffRowKind = 'same' | 'added' | 'removed' | 'modified'
 
@@ -22,7 +21,6 @@ export interface DiffResult {
   rows: DiffRow[]
   stats: DiffStats
   unified: string
-  semanticApplied: boolean
 }
 
 function splitChangeLines(value: string): string[] {
@@ -37,26 +35,17 @@ function splitChangeLines(value: string): string[] {
 export function computeDiff(
   left: string,
   right: string,
-  options?: { semanticJson?: boolean },
+  options?: { ignoreWhitespace?: boolean },
 ): DiffResult {
-  let normLeft = left.replace(/\r\n/g, '\n')
-  let normRight = right.replace(/\r\n/g, '\n')
-  let semanticApplied = false
-
-  if (options?.semanticJson) {
-    try {
-      normLeft = sortJsonKeys(normLeft, 'asc', '2')
-      normRight = sortJsonKeys(normRight, 'asc', '2')
-      semanticApplied = true
-    } catch {
-      semanticApplied = false
-    }
-  }
+  const normLeft = left.replace(/\r\n/g, '\n')
+  const normRight = right.replace(/\r\n/g, '\n')
 
   const ensureEol = (text: string): string =>
     text.length > 0 && !text.endsWith('\n') ? `${text}\n` : text
 
-  const parts = diffLines(ensureEol(normLeft), ensureEol(normRight))
+  const parts = diffLines(ensureEol(normLeft), ensureEol(normRight), {
+    ignoreWhitespace: Boolean(options?.ignoreWhitespace),
+  })
   const rows: DiffRow[] = []
   const unifiedLines: string[] = []
   const stats: DiffStats = {
@@ -169,6 +158,5 @@ export function computeDiff(
     rows,
     stats,
     unified: unifiedLines.join('\n'),
-    semanticApplied,
   }
 }

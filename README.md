@@ -1,38 +1,35 @@
 <p align="center"><img src="utools/logo.png" width="88" alt="数形万变"></p>
 <h1 align="center">数形万变 · FunData</h1>
-<p align="center">离线 JSON 与多格式数据处理工作台：五视图编辑、RFC 9535 JSONPath、智能解码与 8 合 1 开发者工具箱。</p>
+<p align="center">离线 10 合 1 开发者数据工具箱：多格式互转、SQL 美化、Protobuf、编解码与时间戳、JWT 验签签发、哈希/UUID、正则实验、Cron 解析、色值进制与文本对比。</p>
 <p align="center"><a href="https://farfarfun.github.io/packages/utools-fundata/">产品主页</a> · <a href="https://github.com/farfarfun-utools/utools-fundata/actions">构建与截图</a> · <a href="https://github.com/farfarfun-utools/utools-fundata/issues">反馈问题</a> · <a href="https://github.com/farfarfun-utools/utools-plugins">更多插件</a></p>
 
-![代码工作台与 JSONPath](docs/screenshots/home.png)
+![数形万变 10 合 1 工作室总览](docs/screenshots/home.png)
 
-## 核心功能
+## 10 款完全离线开发者工具
 
-- **多标签工作台**：支持多文档标签（格式徽标、双击重命名、拖拽打开本地文件）、自动格式识别与历史版本快照对比恢复。
-- **五大视图自由切换**：
-  - **文本视图（CodeMirror 6）**：语法高亮、行号、代码折叠、括号匹配、实时 JSON 语法校验与精准行列报错定位；内置**智能解码条**（光标悬停自动识别时间戳、Base64、URL、Unicode、嵌套 JSON 字符串及颜色色块）与可折叠 **RFC 9535 JSONPath 查询栏**；`.proto` 文件支持一键重排编号。
-  - **树形视图**：可折叠交互树，支持关键字筛选、全部展开/折叠、原始值内联编辑、增删节点与一键复制 JSONPath。
-  - **栏列视图（Miller Columns）**：类 Finder 分栏只读探索器，支持面包屑跳转与右侧智能值检视器。
-  - **表格视图**：自动识别对象数组字段（如 `$.users`），支持全局搜索、按列过滤、点击列头排序及一键导出 CSV / TSV / Markdown / JSON。
-  - **差异对比视图**：左右双栏并排编辑与实时行级差异高亮，支持**语义对比（忽略键顺序）**与一键格式化两侧。
-- **8 合 1 开发者工具箱**：
-  1. **JSON 修复**：离线 `jsonrepair` 引擎 + 可选 uTools AI / OpenAI 兼容接口修复。
-  2. **类型生成**：JSON 一键生成 TypeScript / Go / Java / Rust / Python / Kotlin / Swift / C# / JSON Schema（9 种目标语言）。
-  3. **格式转换**：JSON / JSON5 / YAML / TOML / XML / CSV / TSV / INI / NDJSON / URL Query 10 格式无损互转。
-  4. **JSONPath 练习与筛选**：内置 6 组 RFC 9535 示例芯片，实时展示匹配结果与规范路径。
-  5. **键名风格转换**：`camelCase` / `snake_case` / `PascalCase` / `kebab-case` / `CONSTANT_CASE` / `dot.case` 递归转换与忽略键设置。
-  6. **编解码与时间戳**：Base64 / URL / Unicode / HTML / Hex / JSON String 双向编解码，以及 Unix 时间戳与日期时间互转。
-  7. **JWT 解析与验签**：无损保留超大整数（Snowflake ID），自动校验 `exp`/`nbf`/`iat` 状态，并基于 Web Crypto 离线校验 HS256 / HS384 / HS512 签名。
-  8. **Protobuf 重编号**：遵循 `reserved` 区间、自动跳过 `19000..19999` 系统保留段并保持 `allow_alias` 枚举别名同步，支持并排差异预览与 `.proto` 导出。
-- **日夜双主题与双语界面**：Cerulean-Obsidian 工作室风格，支持浅色 / 深色 / 跟随系统与中英切换，适配 `800×720` uTools 窗口与窄屏布局。
+- **格式与结构**
+  1. **10 格式万能互转**：JSON / JSON5 / YAML / TOML / XML / CSV / TSV / INI / NDJSON / URL Query 双向无损互转，支持源格式自动识别与一键互换。
+  2. **SQL 格式化与美化**：支持 Standard SQL / MySQL / PostgreSQL / SQLite / BigQuery / T-SQL 6 种方言、关键字大小写风格与单行压缩。
+  3. **Protobuf 重编号**：message 从 1 / enum 从 0 安全重编号，自动跳过 `reserved` / `extensions` 与 `19000..19999` 系统保留段，保留 `allow_alias` 别名与注释，支持并排 Diff 预览。
+- **编码与安全**
+  4. **编解码与时间戳**：Base64（UTF-8 安全）/ URL / Unicode `\uXXXX` / HTML 实体 / Hex / JSON 字符串转义双向转换，内置秒/毫秒 Unix 时间戳与上海/UTC/纽约/伦敦/东京 5 时区实时对照。
+  5. **JWT 解析、验签与签发**：无损保留超大整数（Snowflake ID），实时校验 `exp`/`nbf`/`iat` 状态，基于 Web Crypto 离线支持 HS256 / HS384 / HS512 验签与签发。
+  6. **哈希 / HMAC 与 UUID / 密钥生成**：实时并行计算 MD5（纯 TS）/ SHA-1 / SHA-256 / SHA-384 / SHA-512（支持 HMAC 与 hex/HEX/Base64 切换），并支持 1–50 条批量生成 UUID v4 / ULID / NanoID / 随机 Hex / Base64URL 密钥。
+- **正则与效率**
+  7. **正则表达式实验室**：支持 `g/i/m/s/u` 标志、7 组高频预设（邮箱、手机号、URL、IPv4、ISO 日期、中文、SemVer）、实时匹配高亮、捕获组明细表与替换模板预览。
+  8. **Cron 表达式解析器**：支持 5 位与 6 位（含秒）Cron，中英文自然语言语义解释、逐字段拆解，并纯离线计算指定时区未来 10 次精确触发时间。
+  9. **颜色 / 进制 / 字节换算**：HEX / RGB / RGBA / HSL 双向换算与 WCAG 对比度评级、BigInt 精确 2/8/10/16/36 进制同步换算、IEC（1024）/ SI（1000）存储单位换算。
+  10. **文本对比与批处理**：双行号并排 Diff（支持忽略空白与 Patch 导出），以及去重、排序、逆序、去空行、Trim、批量加前后缀、实时统计与 Top 10 行频分析。
+
+- **高效 Studio 交互**：左侧可折叠分类侧栏 + `⌘K` / `Ctrl+K` 模糊快速跳转面板 + 日夜双主题 + 中英双语，原生适配 `800×720` uTools 窗口与窄屏抽屉布局。
 
 ## uTools 入口
 
 | 入口关键词 / 触发方式 | 行为 |
 | --- | --- |
-| `数形万变` / `FunData` / `json` / `JSON格式化` / `数据转换` / `yaml` / `toml` / `xml` / `jwt` / `protobuf` | 打开工作台 |
-| 剪贴板或输入框匹配 `{...}` / `[...]`（`JSON 格式化`） | 新建标签载入并自动格式化 JSON |
-| 选中 `.json` / `.yaml` / `.toml` / `.xml` / `.csv` / `.proto` / `.sql` 等文件 | 自动识别格式并在多标签中打开 |
-| 选中任意文本使用「用数形万变解析」 | 自动检测数据格式并载入工作台 |
+| `数形万变` / `FunData` / `数据转换` / `yaml` / `toml` / `xml` / `csv` / `jwt` / `protobuf` / `sql` / `cron` / `regex` / `正则` / `hash` / `md5` / `sha256` / `uuid` / `base64` / `时间戳` | 打开工作室总览或直达对应工具 |
+| 选中 `.yaml` / `.toml` / `.xml` / `.csv` / `.tsv` / `.ini` / `.ndjson` / `.proto` / `.sql` / `.txt` 文件 | 自动路由至对应工具加载文件内容 |
+| 选中任意文本使用「用数形万变处理」 | 智能识别 JWT / Cron / SQL / Protobuf / YAML·TOML·XML·CSV / Base64·时间戳并直达对应工具 |
 
 ## AI / MCP 工具
 
@@ -40,23 +37,23 @@
 
 | 工具名 | 功能 | 说明 |
 | --- | --- | --- |
-| `format_json` | 校验、格式化、压缩、按键排序与自动修复 JSON / JSON5 | 纯本地执行 |
-| `query_jsonpath` | 使用 RFC 9535 JSONPath 查询 JSON 数据并返回匹配项与路径 | 纯本地执行 |
 | `convert_data_format` | 在 10 种常见数据格式之间无损互转 | 纯本地执行 |
-| `json_to_types` | 从 JSON 样本生成 9 种目标语言类型定义或 JSON Schema | 纯本地执行 |
 | `decode_jwt` | 解析 JWT Header / Payload 与时间状态 | 不联网、不保存令牌 |
+| `format_sql` | 多方言 SQL 美化与单行压缩 | 纯本地执行 |
+| `parse_cron` | 解析 5/6 位 Cron 并计算未来 N 次触发时间 | 纯本地执行 |
+| `compute_hash` | 计算 MD5 / SHA-1~512 哈希摘要或 HMAC | 纯本地执行 |
 
-> **隐私声明**：插件默认 100% 离线运行，无账号、无埋点、无外部字体或 CDN 请求。工作区标签与偏好设置仅保存在本机 `localStorage` 中；仅当用户在设置中主动配置并触发远程 AI 修复时，才会将待修复文本发送至用户指定的 AI 接口。
+> **隐私声明**：插件 100% 离线运行，无账号、无埋点、无任何外部网络请求。仅在本地 `localStorage` 保存主题、语言、字号与时区偏好。
 
 ## 界面预览
 
-| 树形视图 | 表格视图与筛选排序 |
+| 10 格式万能互转（JSON → YAML） | 正则表达式实时实验室 |
 | --- | --- |
-| ![树形视图](docs/screenshots/tree.png) | ![表格视图](docs/screenshots/table.png) |
+| ![格式互转](docs/screenshots/convert.png) | ![正则实验室](docs/screenshots/regex.png) |
 
-| 8 合 1 工具箱（类型生成） | 深色模式与 JSONPath |
+| Cron 表达式与未来 10 次触发 | 深色模式工作室（哈希与 HMAC） |
 | --- | --- |
-| ![工具箱](docs/screenshots/toolbox.png) | ![深色模式](docs/screenshots/dark.png) |
+| ![Cron 解析](docs/screenshots/cron.png) | ![深色模式](docs/screenshots/dark.png) |
 
 ## 安装与构建
 

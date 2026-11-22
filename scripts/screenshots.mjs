@@ -90,45 +90,31 @@ try {
 
   await setViewport(800)
   await browser.navigate()
-  await session.waitForExpression('document.querySelector("[data-testid=code-editor-host] .cm-editor") !== null')
+  await session.waitForExpression('document.querySelector("[data-testid=overview-grid]") !== null')
+  await session.evaluate('document.fonts.ready')
+  await raf(3)
 
-  // 1. Light mode Code view with Smart Inspector (line 4 timestamp) + JSONPath bar open
-  const line4Pos = await session.evaluate(`(() => {
-    const lines = document.querySelectorAll('.cm-line');
-    if (!lines[3]) return null;
-    const rect = lines[3].getBoundingClientRect();
-    return { x: rect.left + 165, y: rect.top + rect.height / 2 };
-  })()`)
-  if (line4Pos) {
-    await session.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: line4Pos.x, y: line4Pos.y, button: 'left', clickCount: 1 })
-    await session.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: line4Pos.x, y: line4Pos.y, button: 'left', clickCount: 1 })
-    await session.waitForExpression('document.querySelector("[data-testid=smart-inspector]") !== null')
-  }
-  await click('[data-testid="toggle-jsonpath-btn"]')
-  await session.waitForExpression('document.querySelector("[data-testid=jsonpath-drawer]") !== null')
+  // 1. Overview 10-tool Studio Card Grid (light)
   await capture('home')
 
-  // 2. Tree view
-  await click('[data-testid="view-tree"]')
-  await session.waitForExpression('document.querySelector("[data-testid=tree-view]") !== null')
-  await capture('tree')
+  // 2. 10-Format Converter split workspace (JSON -> YAML)
+  await click('[data-testid="tool-card-convert"]')
+  await session.waitForExpression('document.querySelector("[data-testid=tool-convert]") !== null')
+  await capture('convert')
 
-  // 3. Table view
-  await click('[data-testid="view-table"]')
-  await session.waitForExpression('document.querySelector("[data-testid=table-view] table") !== null')
-  await capture('table')
+  // 3. Regex Lab with live highlighted matches & capture groups table
+  await click('[data-testid="nav-tool-regex"]')
+  await session.waitForExpression('document.querySelector("[data-testid=regex-groups-table]") !== null')
+  await capture('regex')
 
-  // 4. Toolbox view (TypeScript type generator)
-  await click('[data-testid="ws-toolbox-btn"]')
-  await session.waitForExpression('document.querySelector("[data-testid=toolbox-view]") !== null')
-  await click('[data-testid="tool-btn-types"]')
-  await session.waitForExpression('document.querySelector("[data-testid=tool-panel-types]") !== null')
-  await capture('toolbox')
+  // 4. Cron Parser showing human explanation & next 10 run timestamps
+  await click('[data-testid="nav-tool-cron"]')
+  await session.waitForExpression('document.querySelector("[data-testid=cron-runs-table]") !== null')
+  await capture('cron')
 
-  // 5. Dark mode Code view with JSONPath bar open
-  await click('[data-testid="ws-workbench-btn"]')
-  await click('[data-testid="view-code"]')
-  await session.waitForExpression('document.querySelector("[data-testid=jsonpath-drawer]") !== null')
+  // 5. Dark mode Studio view (Crypto Hash & HMAC workspace)
+  await click('[data-testid="nav-tool-crypto"]')
+  await session.waitForExpression('document.querySelector("[data-testid=hash-row-sha256]") !== null')
   // Cycle theme: system -> light -> dark
   await click('[data-testid="theme-btn"]')
   await click('[data-testid="theme-btn"]')

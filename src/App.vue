@@ -1,96 +1,138 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import logoUrl from '../utools/logo.png'
-import CodeEditorView from './components/CodeEditorView.vue'
-import ColumnView from './components/ColumnView.vue'
-import DiffView from './components/DiffView.vue'
-import HistoryModal from './components/HistoryModal.vue'
-import SettingsModal from './components/SettingsModal.vue'
-import TableView from './components/TableView.vue'
-import ToolboxView from './components/ToolboxView.vue'
-import TreeView from './components/TreeView.vue'
-import { repairJsonWithAi } from './lib/ai-repair'
-import { registerFunDataAiTools } from './lib/ai-tools'
 import {
-  DATA_FORMATS,
-  detectFormat,
-  escapeJsonString,
-  formatContent,
-  getFormatMeta,
-  minifyContent,
-  repairJsonLocal,
-  sortJsonKeys,
-  unescapeJsonString,
-  type DataFormat,
-  type IndentOption,
-} from './lib/formats'
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+  type Component,
+} from 'vue'
+import logoUrl from '../utools/logo.png'
+import AppIcon, { type IconName } from './components/AppIcon.vue'
+import CommandPalette from './components/CommandPalette.vue'
+import SettingsModal from './components/SettingsModal.vue'
+import ConvertTool from './components/tools/ConvertTool.vue'
+import CronTool from './components/tools/CronTool.vue'
+import CryptoTool from './components/tools/CryptoTool.vue'
+import EncodingTool from './components/tools/EncodingTool.vue'
+import JwtTool from './components/tools/JwtTool.vue'
+import ProtoTool from './components/tools/ProtoTool.vue'
+import RegexTool from './components/tools/RegexTool.vue'
+import SqlTool from './components/tools/SqlTool.vue'
+import TextTool from './components/tools/TextTool.vue'
+import UnitsTool from './components/tools/UnitsTool.vue'
+import { registerFunDataAiTools } from './lib/ai-tools'
 import { t } from './lib/i18n'
 import {
-  autoTabName,
-  createTab,
-  loadWorkspace,
-  pushTabHistory,
-  SAMPLES,
-  saveWorkspace,
+  detectRouteForInput,
+  getToolMeta,
+  loadStudioState,
+  saveStudioState,
+  TOOL_CATEGORIES,
+  TOOL_REGISTRY,
+  type ActiveView,
   type FunDataSettings,
-  type TabHistoryEntry,
-  type TabItem,
+  type StudioState,
+  type ToolCategory,
   type ToolId,
-  type ViewMode,
-  type WorkspaceState,
 } from './lib/storage'
 
-const workspace = ref<WorkspaceState>(loadWorkspace())
-const showHistory = ref(false)
+interface ToolComponentApi {
+  loadSample?: () => void
+  applyInput?: (text: string) => void
+  getExportPayload?: () => { filename: string; content: string }
+}
+
+const TOOL_COMPONENTS: Record<ToolId, Component> = {
+  convert: ConvertTool,
+  sql: SqlTool,
+  proto: ProtoTool,
+  encoding: EncodingTool,
+  jwt: JwtTool,
+  crypto: CryptoTool,
+  regex: RegexTool,
+  cron: CronTool,
+  units: UnitsTool,
+  text: TextTool,
+}
+
+const studio = ref<StudioState>(loadStudioState())
+const sidebarCollapsed = ref(false)
+const mobileNavOpen = ref(false)
 const showSettings = ref(false)
-const showSampleMenu = ref(false)
-const jsonPathOpen = ref(false)
+const showCmdPalette = ref(false)
+const overviewQuery = ref('')
+const overviewCategory = ref<'all' | ToolCategory>('all')
+const liveMetrics = ref('')
 const dragOver = ref(false)
-const cursorPos = ref({ line: 1, col: 1 })
-const sortOrder = ref<'asc' | 'desc'>('asc')
-const escapedState = ref(false)
 
-const renamingTabId = ref<string | null>(null)
-const renameDraft = ref('')
+const activeToolRef = ref<ToolComponentApi | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
-const codeEditorRef = ref<InstanceType<typeof CodeEditorView> | null>(null)
-
 const toast = ref<{ message: string; kind: 'info' | 'success' | 'error' } | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let unsubscribeEnter: (() => void) | null = null
 
-const prefersDark = ref(
-  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(prefers-color-scheme: dark)').matches
-    : false,
+const locale = computed(() => studio.value.settings.locale)
+const isEn = computed(() => locale.value === 'en')
+const isOverview = computed(() => studio.value.activeView === 'overview')
+
+const activeToolId = computed<ToolId | null>(() =>
+  studio.value.activeView === 'overview' ? null : studio.value.activeView,
 )
 
-const effectiveDark = computed(() => {
-  if (workspace.value.settings.theme === 'dark') return true
-  if (workspace.value.settings.theme === 'light') return false
-  if (typeof window !== 'undefined' && window.utools?.isDarkColors) {
-    return Boolean(window.utools.isDarkColors())
-  }
-  return prefersDark.value
+const activeToolMeta = computed(() =>
+  activeToolId.value ? getToolMeta(activeToolId.value) : null,
+)
+
+const activeCategoryLabel = computed(() => {
+  if (!activeToolMeta.value) return ''
+  const cat = TOOL_CATEGORIES.find((c) => c.id === activeToolMeta.value?.category)
+  if (!cat) return ''
+  return isEn.value ? cat.labelEn : cat.labelZh
 })
 
-const activeTab = computed<TabItem>(() => {
-  const found = workspace.value.tabs.find((item) => item.id === workspace.value.activeTabId)
-  return found ?? workspace.value.tabs[0]
+const activeToolComponent = computed(() =>
+  activeToolId.value ? TOOL_COMPONENTS[activeToolId.value] : null,
+)
+
+const themeIcon = computed<IconName>(() => {
+  const mode = studio.value.settings.theme
+  if (mode === 'system') return 'monitor'
+  return mode === 'dark' ? 'moon' : 'sun'
 })
 
-const locale = computed(() => workspace.value.settings.locale)
-const inToolbox = computed(() => workspace.value.activeTool !== null)
-const currentTool = computed<ToolId>(() => workspace.value.activeTool ?? 'types')
-const isJsonLike = computed(() => getFormatMeta(activeTab.value.format).isJsonLike)
+const groupedTools = computed(() =>
+  TOOL_CATEGORIES.map((cat) => ({
+    ...cat,
+    label: isEn.value ? cat.labelEn : cat.labelZh,
+    tools: TOOL_REGISTRY.filter((item) => item.category === cat.id),
+  })),
+)
 
-const activeStats = computed(() => {
-  const text = activeTab.value.content
-  const lines = text ? text.split(/\r?\n/).length : 0
-  const bytes = new TextEncoder().encode(text).length
-  const size = bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
-  return { lines, size }
+const filteredOverviewTools = computed(() => {
+  const q = overviewQuery.value.trim().toLowerCase()
+  return TOOL_REGISTRY.filter((tool) => {
+    if (overviewCategory.value !== 'all' && tool.category !== overviewCategory.value) {
+      return false
+    }
+    if (!q) return true
+    const hay = [
+      tool.id,
+      tool.nameZh,
+      tool.nameEn,
+      tool.shortZh,
+      tool.shortEn,
+      tool.descZh,
+      tool.descEn,
+      ...tool.tags,
+      ...tool.keywords,
+    ]
+      .join(' ')
+      .toLowerCase()
+    return q.split(/\s+/).every((tok) => hay.includes(tok))
+  })
 })
 
 function notify(message: string, kind: 'info' | 'success' | 'error' = 'info') {
@@ -98,12 +140,12 @@ function notify(message: string, kind: 'info' | 'success' | 'error' = 'info') {
   if (toastTimer) clearTimeout(toastTimer)
   toastTimer = setTimeout(() => {
     toast.value = null
-  }, 2400)
+  }, 2200)
 }
 
-function applyThemeAttribute() {
+function applyThemeAndTypography() {
   if (typeof document === 'undefined') return
-  const mode = workspace.value.settings.theme
+  const mode = studio.value.settings.theme
   if (mode === 'system') {
     if (typeof window !== 'undefined' && window.utools?.isDarkColors) {
       document.documentElement.dataset.theme = window.utools.isDarkColors() ? 'dark' : 'light'
@@ -113,200 +155,52 @@ function applyThemeAttribute() {
   } else {
     document.documentElement.dataset.theme = mode
   }
+  document.documentElement.style.setProperty(
+    '--editor-font-size',
+    `${studio.value.settings.fontSize}px`,
+  )
 }
 
 function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
-    saveWorkspace(workspace.value)
-  }, 250)
+    saveStudioState(studio.value)
+  }, 200)
 }
 
 watch(
-  workspace,
+  studio,
   () => {
-    applyThemeAttribute()
+    applyThemeAndTypography()
     scheduleSave()
   },
   { deep: true },
 )
 
-function updateActiveTab(updater: (tab: TabItem) => TabItem) {
-  const idx = workspace.value.tabs.findIndex((item) => item.id === activeTab.value.id)
-  if (idx === -1) return
-  workspace.value.tabs[idx] = updater(workspace.value.tabs[idx])
-}
-
-function snapshotActiveTab(label: string) {
-  updateActiveTab((tab) => pushTabHistory(tab, label))
-}
-
-function setActiveContent(next: string) {
-  updateActiveTab((tab) => ({ ...tab, content: next, updatedAt: Date.now() }))
-}
-
-function setActiveDiffRight(next: string) {
-  updateActiveTab((tab) => ({ ...tab, diffRight: next, updatedAt: Date.now() }))
-}
-
-function setActiveFormat(next: DataFormat) {
-  updateActiveTab((tab) => ({ ...tab, format: next, updatedAt: Date.now() }))
-}
-
-function setActiveIndent(next: IndentOption) {
-  updateActiveTab((tab) => ({ ...tab, indent: next, updatedAt: Date.now() }))
-}
-
-function openNewTab(opts?: {
-  content?: string
-  format?: DataFormat
-  title?: string
-  filename?: string
-}) {
-  const content = opts?.content ?? ''
-  const format = opts?.format ?? (content ? detectFormat(content, opts?.filename) : 'json')
-  const title =
-    opts?.title ??
-    opts?.filename ??
-    (content ? autoTabName(content, format, 'Untitled') : `Tab ${workspace.value.tabs.length + 1}`)
-  const tab = createTab({
-    title,
-    format,
-    content,
-    diffRight: content,
-    indent: workspace.value.settings.defaultIndent,
-    filename: opts?.filename,
-  })
-  workspace.value.tabs.push(tab)
-  workspace.value.activeTabId = tab.id
-  workspace.value.activeTool = null
-  showSampleMenu.value = false
-}
-
-function closeTab(id: string) {
-  if (workspace.value.tabs.length <= 1) {
-    updateActiveTab((tab) => ({ ...tab, content: '', title: 'Untitled', updatedAt: Date.now() }))
-    return
-  }
-  const idx = workspace.value.tabs.findIndex((tab) => tab.id === id)
-  if (idx === -1) return
-  workspace.value.tabs.splice(idx, 1)
-  if (workspace.value.activeTabId === id) {
-    const nextIdx = Math.max(0, idx - 1)
-    workspace.value.activeTabId = workspace.value.tabs[nextIdx].id
+function selectView(view: ActiveView) {
+  studio.value.activeView = view
+  mobileNavOpen.value = false
+  if (view === 'overview') {
+    liveMetrics.value = ''
   }
 }
 
-function startRename(tab: TabItem) {
-  renamingTabId.value = tab.id
-  renameDraft.value = tab.title
+function cycleTheme() {
+  const order: FunDataSettings['theme'][] = ['system', 'light', 'dark']
+  const idx = order.indexOf(studio.value.settings.theme)
+  studio.value.settings.theme = order[(idx + 1) % order.length]
 }
 
-function commitRename(tabId: string) {
-  const trimmed = renameDraft.value.trim()
-  if (trimmed) {
-    const target = workspace.value.tabs.find((item) => item.id === tabId)
-    if (target) target.title = trimmed.slice(0, 32)
-  }
-  renamingTabId.value = null
+function toggleLocale() {
+  studio.value.settings.locale = studio.value.settings.locale === 'zh-CN' ? 'en' : 'zh-CN'
 }
 
-function loadSample(kind: keyof typeof SAMPLES) {
-  showSampleMenu.value = false
-  const content = SAMPLES[kind]
-  const format: DataFormat = kind === 'yaml' ? 'yaml' : kind === 'protobuf' ? 'protobuf' : kind === 'jwt' ? 'text' : 'json'
-  if (kind === 'jwt') {
-    workspace.value.activeTool = 'jwt'
-    return
-  }
-  openNewTab({
-    content,
-    format,
-    title: autoTabName(content, format, `sample.${format}`),
-  })
+function updateSettings(next: FunDataSettings) {
+  studio.value.settings = next
 }
 
-// Toolbar actions
-function handleFormat() {
-  try {
-    snapshotActiveTab(t(locale.value, 'action.format'))
-    const formatted = formatContent(activeTab.value.content, activeTab.value.format, activeTab.value.indent)
-    setActiveContent(formatted)
-    notify(locale.value === 'en' ? 'Formatted' : '已格式化', 'success')
-  } catch (err) {
-    notify(err instanceof Error ? err.message : 'Format failed', 'error')
-  }
-}
-
-function handleMinify() {
-  try {
-    snapshotActiveTab(t(locale.value, 'action.minify'))
-    const minified = minifyContent(activeTab.value.content, activeTab.value.format)
-    setActiveContent(minified)
-    notify(locale.value === 'en' ? 'Minified' : '已压缩', 'success')
-  } catch (err) {
-    notify(err instanceof Error ? err.message : 'Minify failed', 'error')
-  }
-}
-
-async function handleRepair() {
-  try {
-    snapshotActiveTab(t(locale.value, 'tool.repair'))
-    if (workspace.value.settings.ai.provider === 'local') {
-      const res = repairJsonLocal(activeTab.value.content, activeTab.value.indent)
-      setActiveContent(res.output)
-      notify(locale.value === 'en' ? 'Repaired JSON locally' : '已完成本地 JSON 修复', 'success')
-    } else {
-      const res = await repairJsonWithAi(activeTab.value.content, {
-        ...workspace.value.settings.ai,
-        indent: activeTab.value.indent,
-      })
-      setActiveContent(res.output)
-      notify(
-        locale.value === 'en' ? `Repaired via ${res.source}` : `已修复（引擎：${res.source}）`,
-        'success',
-      )
-    }
-  } catch (err) {
-    notify(err instanceof Error ? err.message : 'Repair failed', 'error')
-  }
-}
-
-function handleSortKeys() {
-  try {
-    snapshotActiveTab(sortOrder.value === 'asc' ? 'Sort A→Z' : 'Sort Z→A')
-    const next = sortJsonKeys(activeTab.value.content, sortOrder.value, activeTab.value.indent)
-    setActiveContent(next)
-    notify(
-      sortOrder.value === 'asc'
-        ? t(locale.value, 'action.sortAsc')
-        : t(locale.value, 'action.sortDesc'),
-      'success',
-    )
-    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-  } catch (err) {
-    notify(err instanceof Error ? err.message : 'Sort failed', 'error')
-  }
-}
-
-function handleToggleEscape() {
-  try {
-    snapshotActiveTab(escapedState.value ? 'Unescape' : 'Escape')
-    const next = escapedState.value
-      ? unescapeJsonString(activeTab.value.content)
-      : escapeJsonString(activeTab.value.content)
-    setActiveContent(next)
-    escapedState.value = !escapedState.value
-    notify(
-      escapedState.value ? t(locale.value, 'action.escape') : t(locale.value, 'action.unescape'),
-      'success',
-    )
-  } catch (err) {
-    notify(err instanceof Error ? err.message : 'Escape toggle failed', 'error')
-  }
-}
-
-async function handleCopy(text: string) {
+async function copyText(text: string) {
+  if (!text) return
   try {
     if (typeof window !== 'undefined' && window.utools?.copyText) {
       window.utools.copyText(text)
@@ -315,232 +209,169 @@ async function handleCopy(text: string) {
     }
     notify(t(locale.value, 'action.copied'), 'success')
   } catch {
-    notify(locale.value === 'en' ? 'Copy failed' : '复制失败', 'error')
+    notify(isEn.value ? 'Copy failed' : '复制失败', 'error')
   }
 }
 
-function handleOpenFile() {
-  if (typeof window !== 'undefined' && window.fundata?.openFile) {
-    try {
-      const file = window.fundata.openFile()
-      if (file) {
-        const format = detectFormat(file.content, file.name)
-        openNewTab({ content: file.content, format, filename: file.name, title: file.name })
-        notify(`${locale.value === 'en' ? 'Opened' : '已打开'} ${file.name}`, 'success')
-      }
-      return
-    } catch (err) {
-      notify(err instanceof Error ? err.message : 'Open failed', 'error')
+function exportFile(payload: { filename: string; content: string }) {
+  if (!payload.content) return
+  try {
+    if (typeof window !== 'undefined' && window.fundata?.saveFile) {
+      const ok = window.fundata.saveFile(payload.filename, payload.content)
+      if (ok) notify(isEn.value ? `Exported ${payload.filename}` : `已导出 ${payload.filename}`, 'success')
       return
     }
+    const blob = new Blob([payload.content], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = payload.filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    notify(isEn.value ? `Exported ${payload.filename}` : `已导出 ${payload.filename}`, 'success')
+  } catch (err) {
+    notify(err instanceof Error ? err.message : 'Export failed', 'error')
+  }
+}
+
+function routeAndLoadContent(content: string, filename?: string, explicitTool?: ToolId) {
+  const decision = explicitTool
+    ? { tool: explicitTool, payload: content }
+    : detectRouteForInput(content, filename)
+  studio.value.activeView = decision.tool
+  mobileNavOpen.value = false
+  nextTick(() => {
+    activeToolRef.value?.applyInput?.(decision.payload)
+  })
+}
+
+function handleLoadSample() {
+  activeToolRef.value?.loadSample?.()
+  notify(isEn.value ? 'Sample loaded' : '已载入示例', 'info')
+}
+
+function handleExportActive() {
+  const payload = activeToolRef.value?.getExportPayload?.()
+  if (payload && payload.content) {
+    exportFile(payload)
+  }
+}
+
+function triggerOpenFile() {
+  if (typeof window !== 'undefined' && window.fundata?.openFile) {
+    try {
+      const picked = window.fundata.openFile()
+      if (picked) {
+        routeAndLoadContent(picked.content, picked.name, activeToolId.value ?? undefined)
+        notify(isEn.value ? `Opened ${picked.name}` : `已打开 ${picked.name}`, 'success')
+      }
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Failed to open file', 'error')
+    }
+    return
   }
   fileInputRef.value?.click()
 }
 
-async function handleBrowserFilePick(event: Event) {
+function handleBrowserFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-  try {
-    const content = await file.text()
-    const format = detectFormat(content, file.name)
-    openNewTab({ content, format, filename: file.name, title: file.name })
-    notify(`${locale.value === 'en' ? 'Opened' : '已打开'} ${file.name}`, 'success')
-  } catch {
-    notify(locale.value === 'en' ? 'Failed to read file' : '读取文件失败', 'error')
-  } finally {
-    input.value = ''
+  const reader = new FileReader()
+  reader.onload = () => {
+    const content = typeof reader.result === 'string' ? reader.result : ''
+    routeAndLoadContent(content, file.name, activeToolId.value ?? undefined)
+    notify(isEn.value ? `Opened ${file.name}` : `已打开 ${file.name}`, 'success')
   }
+  reader.readAsText(file)
+  input.value = ''
 }
 
-function handleExportFile(payload?: { filename: string; content: string }) {
-  const ext = getFormatMeta(activeTab.value.format).ext
-  const filename = payload?.filename ?? activeTab.value.filename ?? `${activeTab.value.title || 'fundata'}.${ext}`
-  const content = payload?.content ?? activeTab.value.content
-
-  if (typeof window !== 'undefined' && window.fundata?.saveFile) {
-    try {
-      const saved = window.fundata.saveFile(filename, content)
-      if (saved) notify(`${locale.value === 'en' ? 'Exported' : '已导出'} ${filename}`, 'success')
-      return
-    } catch (err) {
-      notify(err instanceof Error ? err.message : 'Export failed', 'error')
-      return
-    }
-  }
-
-  // Browser download fallback
-  try {
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
-    notify(`${locale.value === 'en' ? 'Exported' : '已导出'} ${filename}`, 'success')
-  } catch {
-    notify(locale.value === 'en' ? 'Export failed' : '导出失败', 'error')
-  }
-}
-
-function handleRestoreHistory(entry: TabHistoryEntry) {
-  snapshotActiveTab(locale.value === 'en' ? 'Before Restore' : '恢复前备份')
-  updateActiveTab((tab) => ({
-    ...tab,
-    content: entry.content,
-    format: entry.format,
-    updatedAt: Date.now(),
-  }))
-  showHistory.value = false
-  notify(locale.value === 'en' ? 'Restored snapshot' : '已恢复历史版本', 'success')
-}
-
-function handleApplyFromToolbox(payload: { content: string; format?: DataFormat }) {
-  snapshotActiveTab('Toolbox')
-  updateActiveTab((tab) => ({
-    ...tab,
-    content: payload.content,
-    format: payload.format ?? tab.format,
-    updatedAt: Date.now(),
-  }))
-  workspace.value.activeTool = null
-  notify(locale.value === 'en' ? 'Applied to active tab' : '已写回当前标签', 'success')
-}
-
-function cycleTheme() {
-  const order: Array<FunDataSettings['theme']> = ['system', 'light', 'dark']
-  const next = order[(order.indexOf(workspace.value.settings.theme) + 1) % order.length]
-  workspace.value.settings.theme = next
-}
-
-function toggleLocale() {
-  workspace.value.settings.locale = workspace.value.settings.locale === 'zh-CN' ? 'en' : 'zh-CN'
-}
-
-function switchWorkspace(mode: 'workbench' | 'toolbox') {
-  if (mode === 'workbench') {
-    workspace.value.activeTool = null
-  } else {
-    workspace.value.activeTool = workspace.value.activeTool ?? 'types'
-  }
-}
-
-function setViewMode(mode: ViewMode) {
-  workspace.value.activeTool = null
-  workspace.value.viewMode = mode
-}
-
-function ingestTextPayload(raw: string, preferFormat?: DataFormat, autoFormat = false) {
-  const text = raw
-  const format = preferFormat ?? detectFormat(text)
-  let finalContent = text
-  if (autoFormat) {
-    try {
-      finalContent = formatContent(text, format, workspace.value.settings.defaultIndent)
-    } catch {
-      finalContent = text
-    }
-  }
-  const title = autoTabName(finalContent, format, 'Clipboard')
-  if (activeTab.value.content.trim()) {
-    openNewTab({ content: finalContent, format, title })
-  } else {
-    updateActiveTab((tab) => ({
-      ...tab,
-      title,
-      format,
-      content: finalContent,
-      diffRight: finalContent,
-      updatedAt: Date.now(),
-    }))
-    workspace.value.activeTool = null
-  }
-  workspace.value.viewMode = 'code'
-}
-
-function handlePluginEnter(action: { code: string; type: string; payload: unknown }) {
-  if (!action) return
-  if (action.code === 'json-regex' && typeof action.payload === 'string') {
-    ingestTextPayload(action.payload, 'json', true)
-    return
-  }
-  if (action.code === 'json-over' && typeof action.payload === 'string') {
-    ingestTextPayload(action.payload, undefined, false)
-    return
-  }
-  if (action.code === 'json-files' && Array.isArray(action.payload) && window.fundata?.readEntryFiles) {
-    const files = window.fundata.readEntryFiles(action.payload as Array<string | { path?: string }>)
-    for (const file of files) {
-      const format = detectFormat(file.content, file.name)
-      openNewTab({ content: file.content, format, filename: file.name, title: file.name })
-    }
-    return
-  }
-  if (action.code === 'fundata') {
-    workspace.value.activeTool = null
-  }
-}
-
-async function handleDrop(event: DragEvent) {
+function handleDrop(event: DragEvent) {
+  event.preventDefault()
   dragOver.value = false
-  const files = event.dataTransfer?.files
-  if (!files || files.length === 0) return
-  for (const file of Array.from(files).slice(0, 5)) {
-    try {
-      const content = await file.text()
-      const format = detectFormat(content, file.name)
-      openNewTab({ content, format, filename: file.name, title: file.name })
-    } catch {
-      // ignore unreadable dropped file
+  const file = event.dataTransfer?.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    const content = typeof reader.result === 'string' ? reader.result : ''
+    routeAndLoadContent(content, file.name)
+    notify(isEn.value ? `Loaded ${file.name}` : `已载入 ${file.name}`, 'success')
+  }
+  reader.readAsText(file)
+}
+
+function handleUtoolsEnter(action: { code: string; type: string; payload: unknown }) {
+  if (!action) return
+  const { code, type, payload } = action
+
+  if (code === 'data-files' && Array.isArray(payload) && window.fundata?.readEntryFiles) {
+    const files = window.fundata.readEntryFiles(payload as Array<string | { path?: string }>)
+    if (files.length > 0) {
+      routeAndLoadContent(files[0].content, files[0].name)
+    }
+    return
+  }
+
+  if (code === 'data-over' && typeof payload === 'string' && payload.trim()) {
+    routeAndLoadContent(payload)
+    return
+  }
+
+  if (code === 'fundata' && type === 'text' && typeof payload === 'string') {
+    const kw = payload.trim().toLowerCase()
+    const directMap: Record<string, ToolId> = {
+      yaml: 'convert',
+      toml: 'convert',
+      xml: 'convert',
+      csv: 'convert',
+      数据转换: 'convert',
+      sql: 'sql',
+      protobuf: 'proto',
+      base64: 'encoding',
+      时间戳: 'encoding',
+      jwt: 'jwt',
+      hash: 'crypto',
+      md5: 'crypto',
+      sha256: 'crypto',
+      uuid: 'crypto',
+      regex: 'regex',
+      正则: 'regex',
+      cron: 'cron',
+    }
+    if (directMap[kw]) {
+      selectView(directMap[kw])
     }
   }
 }
 
-function handleKeydown(event: KeyboardEvent) {
-  const mod = event.metaKey || event.ctrlKey
-  if (!mod) return
-  const key = event.key.toLowerCase()
-  if (event.shiftKey && key === 'f') {
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault()
-    if (!inToolbox.value) handleFormat()
-  } else if (key === 'k') {
-    event.preventDefault()
-    workspace.value.activeTool = null
-    workspace.value.viewMode = 'code'
-    jsonPathOpen.value = true
-    nextTick(() => codeEditorRef.value?.focusJsonPath())
-  } else if (key === 't') {
-    event.preventDefault()
-    openNewTab()
+    showCmdPalette.value = !showCmdPalette.value
+    return
   }
-}
-
-let mediaQuery: MediaQueryList | null = null
-const onMediaChange = (e: MediaQueryListEvent) => {
-  prefersDark.value = e.matches
+  if (event.key === 'Escape') {
+    if (showCmdPalette.value) showCmdPalette.value = false
+    else if (showSettings.value) showSettings.value = false
+    else if (mobileNavOpen.value) mobileNavOpen.value = false
+  }
 }
 
 onMounted(() => {
-  applyThemeAttribute()
+  applyThemeAndTypography()
   registerFunDataAiTools()
-
-  if (typeof window !== 'undefined' && window.fundata?.onEnter) {
-    unsubscribeEnter = window.fundata.onEnter(handlePluginEnter)
+  window.addEventListener('keydown', handleGlobalKeydown)
+  if (window.fundata?.onEnter) {
+    unsubscribeEnter = window.fundata.onEnter(handleUtoolsEnter)
   }
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    mediaQuery.addEventListener?.('change', onMediaChange)
-  }
-  window.addEventListener('keydown', handleKeydown)
 })
 
 onBeforeUnmount(() => {
-  unsubscribeEnter?.()
-  mediaQuery?.removeEventListener?.('change', onMediaChange)
-  window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  if (unsubscribeEnter) unsubscribeEnter()
   if (toastTimer) clearTimeout(toastTimer)
   if (saveTimer) clearTimeout(saveTimer)
 })
@@ -548,601 +379,887 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="workbench-shell"
-    :class="{ 'is-dragover': dragOver }"
+    class="studio-shell"
+    :class="{ 'is-collapsed': sidebarCollapsed, 'is-drag-over': dragOver }"
     @dragover.prevent="dragOver = true"
     @dragleave.self="dragOver = false"
-    @drop.prevent="handleDrop"
+    @drop="handleDrop"
   >
-    <!-- Top Header & Tab Bar -->
-    <header class="top-bar">
-      <div class="brand-cluster">
-        <img :src="logoUrl" alt="数形万变" class="brand-logo" />
-        <span class="brand-name">{{ t(locale, 'app.name') }}</span>
-      </div>
+    <!-- Mobile backdrop -->
+    <div
+      v-if="mobileNavOpen"
+      class="mobile-nav-backdrop"
+      @click="mobileNavOpen = false"
+    />
 
-      <div class="tabs-strip" role="tablist">
-        <div
-          v-for="tab in workspace.tabs"
-          :key="tab.id"
-          class="tab-pill"
-          :class="{ active: !inToolbox && tab.id === activeTab.id }"
-          role="tab"
-          :aria-selected="!inToolbox && tab.id === activeTab.id"
-          :data-testid="`tab-${tab.id}`"
-          @click="
-            workspace.activeTabId = tab.id;
-            workspace.activeTool = null;
-          "
-          @dblclick="startRename(tab)"
+    <!-- Left Collapsible Sidebar -->
+    <aside
+      class="workbench-nav"
+      :class="{ collapsed: sidebarCollapsed, 'mobile-open': mobileNavOpen }"
+      aria-label="Tools Navigation"
+    >
+      <!-- Brand Row -->
+      <div class="nav-brand-row">
+        <button
+          type="button"
+          class="brand-home-btn"
+          :title="t(locale, 'app.name')"
+          @click="selectView('overview')"
         >
-          <span class="tab-fmt mono">{{ getFormatMeta(tab.format).shortLabel }}</span>
-          <input
-            v-if="renamingTabId === tab.id"
-            v-model="renameDraft"
-            type="text"
-            class="tab-rename-input"
-            @click.stop
-            @blur="commitRename(tab.id)"
-            @keydown.enter="commitRename(tab.id)"
-            @keydown.esc="renamingTabId = null"
-          />
-          <span v-else class="tab-title">{{ tab.title }}</span>
-          <button
-            type="button"
-            class="tab-close"
-            :aria-label="t(locale, 'action.closeTab')"
-            @click.stop="closeTab(tab.id)"
-          >
-            ×
-          </button>
-        </div>
+          <img :src="logoUrl" alt="FunData" class="brand-logo" />
+          <span v-if="!sidebarCollapsed" class="brand-titles">
+            <span class="brand-name">{{ t(locale, 'app.name') }}</span>
+            <span class="brand-sub">{{ t(locale, 'app.subtitle') }}</span>
+          </span>
+        </button>
 
         <button
           type="button"
-          class="icon-btn new-tab-btn"
-          data-testid="new-tab-btn"
-          :title="t(locale, 'action.newTab')"
-          :aria-label="t(locale, 'action.newTab')"
-          @click="openNewTab()"
+          class="icon-btn collapse-btn"
+          data-testid="sidebar-collapse-btn"
+          :title="sidebarCollapsed ? (isEn ? 'Expand' : '展开侧栏') : (isEn ? 'Collapse' : '收起侧栏')"
+          @click="sidebarCollapsed = !sidebarCollapsed"
         >
-          +
+          <AppIcon name="panel-left" :size="14" />
         </button>
-
-        <div class="sample-wrap">
-          <button
-            type="button"
-            class="pill-btn xs"
-            data-testid="sample-menu-btn"
-            @click="showSampleMenu = !showSampleMenu"
-          >
-            {{ locale === 'en' ? 'Samples ▾' : '示例 ▾' }}
-          </button>
-          <div v-if="showSampleMenu" class="sample-menu">
-            <button type="button" class="menu-item" @click="loadSample('json')">JSON (Users & Decoders)</button>
-            <button type="button" class="menu-item" @click="loadSample('yaml')">YAML (Gateway Config)</button>
-            <button type="button" class="menu-item" @click="loadSample('protobuf')">Protobuf (.proto)</button>
-            <button type="button" class="menu-item" @click="loadSample('jwt')">JWT Token</button>
-          </div>
-        </div>
       </div>
 
-      <div class="top-right-controls">
-        <div class="seg-control workspace-switch" role="group">
+      <!-- Navigation List -->
+      <nav class="nav-scroll">
+        <button
+          type="button"
+          class="nav-item nav-overview-item"
+          data-testid="nav-overview"
+          :class="{ active: isOverview }"
+          :title="t(locale, 'nav.overview')"
+          @click="selectView('overview')"
+        >
+          <span class="tone-badge nav-ico-badge tone-violet">
+            <AppIcon name="grid" :size="13" />
+          </span>
+          <span v-if="!sidebarCollapsed" class="nav-label">{{ t(locale, 'nav.overview') }}</span>
+          <span v-if="!sidebarCollapsed && isOverview" class="active-dot" />
+        </button>
+
+        <div v-for="group in groupedTools" :key="group.id" class="nav-group">
+          <div v-if="!sidebarCollapsed" class="nav-group-label">{{ group.label }}</div>
+          <div v-else class="nav-group-sep" />
+
           <button
+            v-for="tool in group.tools"
+            :key="tool.id"
             type="button"
-            class="seg-btn"
-            data-testid="ws-workbench-btn"
-            :class="{ active: !inToolbox }"
-            @click="switchWorkspace('workbench')"
+            class="nav-item"
+            :data-testid="`nav-tool-${tool.id}`"
+            :class="{ active: studio.activeView === tool.id }"
+            :title="isEn ? tool.nameEn : tool.nameZh"
+            @click="selectView(tool.id)"
           >
-            {{ locale === 'en' ? 'Workbench' : '工作台' }}
-          </button>
-          <button
-            type="button"
-            class="seg-btn"
-            data-testid="ws-toolbox-btn"
-            :class="{ active: inToolbox }"
-            @click="switchWorkspace('toolbox')"
-          >
-            {{ locale === 'en' ? 'Toolbox' : '工具箱' }}
+            <span class="tone-badge nav-ico-badge" :class="`tone-${tool.tone}`">
+              <AppIcon :name="tool.icon" :size="13" />
+            </span>
+            <span v-if="!sidebarCollapsed" class="nav-label">
+              {{ isEn ? tool.shortEn : tool.shortZh }}
+            </span>
+            <span v-if="!sidebarCollapsed && studio.activeView === tool.id" class="active-dot" />
           </button>
         </div>
+      </nav>
 
+      <!-- Bottom Utility Bar -->
+      <div class="nav-footer">
         <button
           type="button"
           class="icon-btn"
-          data-testid="history-btn"
-          :title="t(locale, 'action.history')"
-          :aria-label="t(locale, 'action.history')"
-          @click="showHistory = true"
-        >
-          ◷
-        </button>
-        <button
-          type="button"
-          class="icon-btn theme-button"
           data-testid="theme-btn"
-          :title="t(locale, 'settings.theme')"
-          :aria-label="t(locale, 'settings.theme')"
+          :title="isEn ? `Theme: ${studio.settings.theme}` : `主题：${studio.settings.theme}`"
           @click="cycleTheme"
         >
-          {{ effectiveDark ? '☾' : '☀' }}
+          <AppIcon :name="themeIcon" :size="14" />
         </button>
+
+        <button
+          v-if="!sidebarCollapsed"
+          type="button"
+          class="ghost-btn xs locale-toggle-btn"
+          data-testid="locale-btn"
+          :title="isEn ? 'Switch Language' : '切换中/英文'"
+          @click="toggleLocale"
+        >
+          {{ locale === 'zh-CN' ? '中/EN' : 'EN/中' }}
+        </button>
+
         <button
           type="button"
           class="icon-btn"
           data-testid="settings-btn"
           :title="t(locale, 'action.settings')"
-          :aria-label="t(locale, 'action.settings')"
           @click="showSettings = true"
         >
-          ⚙
+          <AppIcon name="settings" :size="14" />
         </button>
       </div>
-    </header>
+    </aside>
 
-    <!-- Workbench Sub-toolbar -->
-    <div v-if="!inToolbox" class="action-bar">
-      <div class="seg-control view-switch" role="tablist">
-        <button
-          v-for="mode in (['code', 'tree', 'columns', 'table', 'diff'] as ViewMode[])"
-          :key="mode"
-          type="button"
-          class="seg-btn"
-          :class="{ active: workspace.viewMode === mode }"
-          :data-testid="`view-${mode}`"
-          @click="setViewMode(mode)"
-        >
-          {{ t(locale, `nav.${mode}`) }}
-        </button>
-      </div>
+    <!-- Right Workspace Frame -->
+    <div class="workspace-frame">
+      <!-- Slim Top Context Header (40px) -->
+      <header class="context-header">
+        <div class="header-left">
+          <button
+            type="button"
+            class="icon-btn mobile-menu-btn"
+            aria-label="Open menu"
+            @click="mobileNavOpen = !mobileNavOpen"
+          >
+            <AppIcon name="panel-left" :size="15" />
+          </button>
 
-      <div class="action-buttons">
-        <button type="button" class="pill-btn primary xs" data-testid="btn-format" @click="handleFormat">
-          {{ t(locale, 'action.format') }}
-        </button>
-        <button type="button" class="pill-btn xs" data-testid="btn-minify" @click="handleMinify">
-          {{ t(locale, 'action.minify') }}
-        </button>
-        <button v-if="isJsonLike" type="button" class="pill-btn xs" data-testid="btn-repair" @click="handleRepair">
-          {{ locale === 'en' ? 'Repair' : '修复' }}
-        </button>
-        <button v-if="isJsonLike" type="button" class="pill-btn xs" data-testid="btn-sort" @click="handleSortKeys">
-          {{ locale === 'en' ? 'Sort' : '排序' }}
-        </button>
-        <button v-if="isJsonLike" type="button" class="pill-btn xs" data-testid="btn-escape" @click="handleToggleEscape">
-          {{ escapedState ? t(locale, 'action.unescape') : t(locale, 'action.escape') }}
-        </button>
-        <button type="button" class="pill-btn xs" @click="handleOpenFile">
-          {{ locale === 'en' ? 'Open' : '打开' }}
-        </button>
-        <button type="button" class="pill-btn xs" @click="handleExportFile()">
-          {{ locale === 'en' ? 'Export' : '导出' }}
-        </button>
-        <button type="button" class="pill-btn xs" @click="handleCopy(activeTab.content)">
-          {{ t(locale, 'action.copy') }}
-        </button>
-      </div>
+          <button
+            v-if="!isOverview"
+            type="button"
+            class="icon-btn"
+            data-testid="back-overview-btn"
+            :title="t(locale, 'action.backOverview')"
+            @click="selectView('overview')"
+          >
+            <AppIcon name="arrow-left" :size="14" />
+          </button>
 
-      <div class="format-controls">
-        <select
-          class="pill-select compact-select"
-          :value="activeTab.format"
-          aria-label="Data format"
-          @change="setActiveFormat(($event.target as HTMLSelectElement).value as DataFormat)"
-        >
-          <option v-for="fmt in DATA_FORMATS" :key="fmt.id" :value="fmt.id">{{ fmt.label }}</option>
-        </select>
+          <template v-if="isOverview">
+            <span class="header-title">{{ t(locale, 'status.allTools') }}</span>
+            <span class="badge badge-accent">{{ t(locale, 'status.offline') }}</span>
+          </template>
+          <template v-else-if="activeToolMeta">
+            <span class="tone-badge header-tool-ico" :class="`tone-${activeToolMeta.tone}`">
+              <AppIcon :name="activeToolMeta.icon" :size="13" />
+            </span>
+            <span class="header-title" data-testid="active-tool-title">
+              {{ isEn ? activeToolMeta.nameEn : activeToolMeta.nameZh }}
+            </span>
+            <span class="badge badge-neutral header-cat-badge">{{ activeCategoryLabel }}</span>
+          </template>
+        </div>
 
-        <select
-          class="pill-select compact-select"
-          :value="activeTab.indent"
-          aria-label="Indentation"
-          @change="setActiveIndent(($event.target as HTMLSelectElement).value as IndentOption)"
-        >
-          <option value="2">2sp</option>
-          <option value="4">4sp</option>
-          <option value="tab">Tab</option>
-        </select>
-      </div>
+        <div class="header-right">
+          <button
+            v-if="!isOverview"
+            type="button"
+            class="ghost-btn xs"
+            data-testid="header-sample-btn"
+            @click="handleLoadSample"
+          >
+            <AppIcon name="sparkles" :size="13" />
+            <span class="btn-text">{{ t(locale, 'action.sample') }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="ghost-btn xs"
+            data-testid="header-open-btn"
+            @click="triggerOpenFile"
+          >
+            <AppIcon name="upload" :size="13" />
+            <span class="btn-text">{{ t(locale, 'action.open') }}</span>
+          </button>
+
+          <button
+            v-if="!isOverview"
+            type="button"
+            class="ghost-btn xs"
+            data-testid="header-export-btn"
+            @click="handleExportActive"
+          >
+            <AppIcon name="download" :size="13" />
+            <span class="btn-text">{{ t(locale, 'action.export') }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="cmd-trigger-btn"
+            data-testid="cmd-palette-btn"
+            @click="showCmdPalette = true"
+          >
+            <AppIcon name="search" :size="12" />
+            <span class="cmd-trigger-label">{{ t(locale, 'action.quickJump') }}</span>
+            <kbd class="cmd-kbd">⌘K</kbd>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content Pane -->
+      <main class="main-pane">
+        <!-- Overview Tool Card Grid -->
+        <div v-if="isOverview" class="overview-pane" data-testid="overview-view">
+          <div class="overview-filter-bar">
+            <div class="overview-search-wrap">
+              <AppIcon name="search" :size="13" class="overview-search-ico" />
+              <input
+                v-model="overviewQuery"
+                type="text"
+                class="overview-search-input"
+                data-testid="overview-search-input"
+                :placeholder="isEn ? 'Filter tools by name or format...' : '搜索工具名称、格式或关键词...'"
+              />
+              <button
+                v-if="overviewQuery"
+                type="button"
+                class="icon-btn"
+                @click="overviewQuery = ''"
+              >
+                <AppIcon name="x" :size="12" />
+              </button>
+            </div>
+
+            <div class="overview-cats">
+              <button
+                type="button"
+                class="chip-btn"
+                :class="{ active: overviewCategory === 'all' }"
+                @click="overviewCategory = 'all'"
+              >
+                {{ t(locale, 'cat.all') }}
+              </button>
+              <button
+                v-for="cat in TOOL_CATEGORIES"
+                :key="cat.id"
+                type="button"
+                class="chip-btn"
+                :data-testid="`cat-chip-${cat.id}`"
+                :class="{ active: overviewCategory === cat.id }"
+                @click="overviewCategory = cat.id"
+              >
+                {{ isEn ? cat.labelEn : cat.labelZh }}
+              </button>
+            </div>
+          </div>
+
+          <div class="overview-grid-scroll">
+            <div class="overview-grid" data-testid="overview-grid">
+              <button
+                v-for="tool in filteredOverviewTools"
+                :key="tool.id"
+                type="button"
+                class="tool-card"
+                :data-testid="`tool-card-${tool.id}`"
+                @click="selectView(tool.id)"
+              >
+                <div class="tool-card-top">
+                  <span class="tone-badge card-ico-badge" :class="`tone-${tool.tone}`">
+                    <AppIcon :name="tool.icon" :size="16" />
+                  </span>
+                  <div class="tool-card-headings">
+                    <span class="tool-card-title">{{ isEn ? tool.nameEn : tool.nameZh }}</span>
+                    <div class="tool-card-tags">
+                      <span v-for="tag in tool.tags" :key="tag" class="mini-tag">{{ tag }}</span>
+                    </div>
+                  </div>
+                  <AppIcon name="chevron-right" :size="14" class="card-arrow" />
+                </div>
+                <p class="tool-card-desc">{{ isEn ? tool.descEn : tool.descZh }}</p>
+              </button>
+            </div>
+
+            <div v-if="filteredOverviewTools.length === 0" class="overview-empty">
+              {{ isEn ? 'No matching data tools found' : '没有匹配的工具，试试其他关键词' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Tool Workspace (preserved across switches) -->
+        <KeepAlive v-else>
+          <component
+            :is="activeToolComponent"
+            :key="activeToolId"
+            ref="activeToolRef"
+            :settings="studio.settings"
+            @copy="copyText"
+            @export="exportFile"
+            @metrics="(m: string) => (liveMetrics = m)"
+          />
+        </KeepAlive>
+      </main>
+
+      <!-- Slim Bottom Status Bar (26px) -->
+      <footer class="status-bar">
+        <div class="status-left">
+          <span class="status-tool-name">
+            {{
+              isOverview
+                ? `${t(locale, 'app.name')} · ${t(locale, 'app.tagline')}`
+                : isEn
+                  ? activeToolMeta?.nameEn
+                  : activeToolMeta?.nameZh
+            }}
+          </span>
+          <span v-if="!isOverview && liveMetrics" class="status-sep">·</span>
+          <span v-if="!isOverview && liveMetrics" class="status-metrics mono tabular">
+            {{ liveMetrics }}
+          </span>
+        </div>
+
+        <div class="status-right">
+          <span class="offline-indicator">
+            <span class="offline-dot" />
+            {{ t(locale, 'status.offline') }}
+          </span>
+        </div>
+      </footer>
     </div>
 
-    <!-- Main Workspace Pane -->
-    <main class="main-pane">
-      <ToolboxView
-        v-if="inToolbox"
-        :active-tool="currentTool"
-        :current-content="activeTab.content"
-        :current-format="activeTab.format"
-        :indent="activeTab.indent"
-        :settings="workspace.settings"
-        @update:active-tool="workspace.activeTool = $event"
-        @apply-to-tab="handleApplyFromToolbox"
-        @open-new-tab="openNewTab($event)"
-        @copy="handleCopy"
-        @export="handleExportFile($event)"
-        @notify="notify($event.message, $event.kind)"
-      />
-
-      <CodeEditorView
-        v-else-if="workspace.viewMode === 'code'"
-        ref="codeEditorRef"
-        :model-value="activeTab.content"
-        :format="activeTab.format"
-        :settings="workspace.settings"
-        :is-dark="effectiveDark"
-        :json-path-open="jsonPathOpen"
-        @update:model-value="setActiveContent"
-        @update:json-path-open="jsonPathOpen = $event"
-        @request-repair="handleRepair"
-        @open-new-tab="openNewTab($event)"
-        @copy="handleCopy"
-        @notify="notify($event.message, $event.kind)"
-        @cursor-change="cursorPos = $event"
-      />
-
-      <TreeView
-        v-else-if="workspace.viewMode === 'tree'"
-        :content="activeTab.content"
-        :indent="activeTab.indent"
-        :settings="workspace.settings"
-        @update:content="setActiveContent"
-        @request-repair="handleRepair"
-        @copy="handleCopy"
-      />
-
-      <ColumnView
-        v-else-if="workspace.viewMode === 'columns'"
-        :content="activeTab.content"
-        :settings="workspace.settings"
-        @copy="handleCopy"
-        @open-new-tab="openNewTab($event)"
-        @request-repair="handleRepair"
-      />
-
-      <TableView
-        v-else-if="workspace.viewMode === 'table'"
-        :content="activeTab.content"
-        :settings="workspace.settings"
-        @copy="handleCopy"
-        @export="handleExportFile($event)"
-        @request-repair="handleRepair"
-      />
-
-      <DiffView
-        v-else
-        :left="activeTab.content"
-        :right="activeTab.diffRight"
-        :format="activeTab.format"
-        :indent="activeTab.indent"
-        :settings="workspace.settings"
-        :current-tab-content="activeTab.content"
-        @update:left="setActiveContent"
-        @update:right="setActiveDiffRight"
-        @notify="notify($event.message, $event.kind)"
-      />
-    </main>
-
-    <!-- Bottom Status Bar -->
-    <footer class="status-bar">
-      <div class="status-group">
-        <span class="status-item mono">{{ getFormatMeta(activeTab.format).label }}</span>
-        <span class="status-sep">·</span>
-        <span class="status-item tabular">Ln {{ cursorPos.line }}, Col {{ cursorPos.col }}</span>
-        <span class="status-sep">·</span>
-        <span class="status-item tabular">{{ activeStats.lines }} {{ locale === 'en' ? 'lines' : '行' }} · {{ activeStats.size }}</span>
-        <span class="status-sep">·</span>
-        <span class="status-item">UTF-8</span>
-      </div>
-
-      <div class="status-group">
-        <span class="offline-pill">
-          <span class="offline-dot" />
-          {{ locale === 'en' ? 'Offline' : '完全离线' }}
-        </span>
-        <button
-          type="button"
-          class="locale-mini-btn"
-          data-testid="locale-toggle-btn"
-          @click="toggleLocale"
-        >
-          {{ locale === 'zh-CN' ? '中 / EN' : 'EN / 中' }}
-        </button>
-      </div>
-    </footer>
-
-    <!-- Hidden browser file picker -->
+    <!-- Hidden file input fallback -->
     <input
       ref="fileInputRef"
       type="file"
       class="sr-only"
-      accept=".json,.json5,.jsonc,.yaml,.yml,.toml,.xml,.csv,.tsv,.ini,.ndjson,.jsonl,.proto,.sql,.txt,.md"
-      @change="handleBrowserFilePick"
+      accept=".json,.json5,.yaml,.yml,.toml,.xml,.csv,.tsv,.ini,.ndjson,.jsonl,.proto,.sql,.txt"
+      @change="handleBrowserFileChange"
+    />
+
+    <!-- Command Palette (Ctrl/Cmd + K) -->
+    <CommandPalette
+      :open="showCmdPalette"
+      :locale="locale"
+      @close="showCmdPalette = false"
+      @select="selectView"
+    />
+
+    <!-- Settings Modal -->
+    <SettingsModal
+      :open="showSettings"
+      :settings="studio.settings"
+      @close="showSettings = false"
+      @update:settings="updateSettings"
     />
 
     <!-- Toast Notification -->
-    <div v-if="toast" class="toast-banner" :class="`toast-${toast.kind}`" role="status">
-      {{ toast.message }}
-    </div>
-
-    <!-- Modals -->
-    <HistoryModal
-      :open="showHistory"
-      :entries="activeTab.history"
-      :current-content="activeTab.content"
-      :locale="locale"
-      @close="showHistory = false"
-      @restore="handleRestoreHistory"
-    />
-
-    <SettingsModal
-      :open="showSettings"
-      :settings="workspace.settings"
-      @close="showSettings = false"
-      @update:settings="workspace.settings = $event"
-    />
+    <Transition name="toast-fade">
+      <div v-if="toast" class="studio-toast" :class="`toast-${toast.kind}`">
+        <AppIcon
+          :name="toast.kind === 'error' ? 'alert-circle' : 'check'"
+          :size="13"
+        />
+        <span>{{ toast.message }}</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
-.workbench-shell {
+.studio-shell {
   width: 100%;
-  height: 100vh;
-  max-height: 100vh;
+  height: 100%;
   display: flex;
-  flex-direction: column;
   overflow: hidden;
   background: var(--bg-canvas);
   position: relative;
 }
 
-.workbench-shell.is-dragover::after {
+.studio-shell.is-drag-over::after {
   content: '';
   position: fixed;
   inset: 6px;
   border: 2px dashed var(--accent);
   border-radius: var(--radius-lg);
-  background: var(--accent-soft);
+  background: rgba(109, 74, 255, 0.06);
   pointer-events: none;
   z-index: 80;
 }
 
-.top-bar {
-  height: 42px;
+/* Left Sidebar */
+.workbench-nav {
+  width: 166px;
   flex-shrink: 0;
+  height: 100%;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  box-shadow: var(--hairline);
-  min-width: 0;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  transition: width 160ms ease;
+  user-select: none;
+  z-index: 30;
 }
 
-.brand-cluster {
+.workbench-nav.collapsed {
+  width: 50px;
+}
+
+.nav-brand-row {
+  height: 40px;
+  padding: 0 8px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.workbench-nav.collapsed .nav-brand-row {
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.workbench-nav.collapsed .brand-home-btn {
+  display: none;
+}
+
+.brand-home-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  text-align: left;
 }
 
 .brand-logo {
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
-  object-fit: cover;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.brand-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
 }
 
 .brand-name {
   font-size: 13px;
   font-weight: 700;
+  color: var(--text-primary);
   letter-spacing: -0.01em;
-  color: var(--text-primary);
-  white-space: nowrap;
 }
 
-.tabs-strip {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  overflow-x: auto;
-  padding: 2px 0;
-}
-
-.tab-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 27px;
-  max-width: 155px;
-  padding: 0 7px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  background: var(--bg-recessed);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 130ms ease;
-}
-
-.tab-pill:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.tab-pill.active {
-  background: var(--bg-panel);
-  border-color: var(--border-accent);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm), inset 0 -2px 0 var(--accent);
-}
-
-.tab-fmt {
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: var(--accent-soft);
+.brand-sub {
+  font-size: 10px;
+  font-weight: 600;
   color: var(--accent);
 }
 
-.tab-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
-}
-
-.tab-rename-input {
-  width: 82px;
-  height: 20px;
-  padding: 0 4px;
-  border: 1px solid var(--accent);
-  border-radius: 3px;
-  background: var(--bg-panel);
-  font-size: 11.5px;
-  outline: none;
-}
-
-.tab-close {
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.tab-close:hover {
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-
-.new-tab-btn {
-  flex-shrink: 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.sample-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.sample-menu {
-  position: fixed;
-  top: 40px;
-  z-index: 60;
-  min-width: 190px;
-  padding: 4px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-strong);
-  background: var(--bg-panel);
-  box-shadow: var(--shadow-md);
+.nav-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 7px 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.menu-item {
-  padding: 6px 10px;
-  border-radius: var(--radius-xs);
-  text-align: left;
+.nav-group {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-group-label {
+  padding: 2px 6px 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.nav-group-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
+.nav-item {
+  width: 100%;
+  height: 31px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-secondary);
   font-size: 12px;
+  font-weight: 500;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.workbench-nav.collapsed .nav-item {
+  justify-content: center;
+  padding: 0;
+}
+
+.nav-item:hover {
+  background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.menu-item:hover {
-  background: var(--accent-soft);
+.nav-item.active {
+  background: var(--bg-active);
   color: var(--accent);
+  font-weight: 600;
 }
 
-.top-right-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
+.nav-ico-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
 }
 
-.action-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-subtle);
-  flex-shrink: 0;
-  overflow-x: auto;
-  min-width: 0;
-}
-
-.action-buttons {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.format-controls {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.compact-select {
-  height: 24px;
-  font-size: 11.5px;
-}
-
-.main-pane {
+.nav-label {
   flex: 1;
-  min-height: 0;
+  min-width: 0;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.active-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.nav-footer {
+  height: 36px;
+  padding: 0 6px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.workbench-nav.collapsed .nav-footer {
+  flex-direction: column;
+  height: auto;
+  padding: 6px 0;
+  gap: 4px;
+}
+
+.locale-toggle-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+/* Right Workspace Frame */
+.workspace-frame {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.status-bar {
-  height: 25px;
-  flex-shrink: 0;
+.context-header {
+  height: 40px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 10px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-subtle);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.header-tool-ico {
+  width: 22px;
+  height: 22px;
+}
+
+.header-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmd-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 130ms ease, color 130ms ease, background-color 130ms ease;
+}
+
+.cmd-trigger-btn:hover {
+  border-color: var(--border-accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.cmd-kbd {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Main Content Pane */
+.main-pane {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
-.status-group {
-  display: inline-flex;
+/* Overview Grid */
+.overview-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-canvas);
+}
+
+.overview-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-canvas);
+  flex-shrink: 0;
+}
+
+.overview-search-wrap {
+  flex: 1;
+  min-width: 180px;
+  max-width: 280px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  display: flex;
   align-items: center;
   gap: 6px;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.overview-search-wrap:focus-within {
+  border-color: var(--accent);
+  background: var(--bg-panel);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.overview-search-ico {
+  color: var(--text-muted);
+}
+
+.overview-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12px;
+}
+
+.overview-cats {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.overview-grid-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  text-align: left;
+  box-shadow: var(--shadow-sm), var(--hairline);
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.tool-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-md);
+  background: var(--bg-panel);
+}
+
+.tool-card-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.card-ico-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.tool-card-headings {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tool-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.status-sep {
-  opacity: 0.45;
+.tool-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
-.offline-pill {
+.mini-tag {
+  padding: 0 5px;
+  height: 16px;
+  line-height: 16px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.card-arrow {
+  color: var(--text-muted);
+  opacity: 0.5;
+  transition: transform 140ms ease, opacity 140ms ease, color 140ms ease;
+}
+
+.tool-card:hover .card-arrow {
+  transform: translateX(2px);
+  opacity: 1;
+  color: var(--accent);
+}
+
+.tool-card-desc {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.overview-empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Bottom Status Bar (26px) */
+.status-bar {
+  height: 26px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.status-left,
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.status-tool-name {
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-metrics {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.offline-indicator {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   color: var(--success);
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .offline-dot {
@@ -1152,65 +1269,105 @@ onBeforeUnmount(() => {
   background: var(--success);
 }
 
-.locale-mini-btn {
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  background: var(--bg-panel);
-  color: var(--text-secondary);
-  font-size: 10.5px;
-  font-weight: 600;
+/* Mobile drawer & narrow viewport */
+.mobile-menu-btn {
+  display: none;
 }
 
-.locale-mini-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.mobile-nav-backdrop {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .mobile-menu-btn {
+    display: inline-flex;
+  }
+
+  .collapse-btn {
+    display: none;
+  }
+
+  .workbench-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 210px !important;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+    box-shadow: var(--shadow-modal);
+  }
+
+  .workbench-nav.mobile-open {
+    transform: translateX(0);
+  }
+
+  .mobile-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 20, 32, 0.36);
+    z-index: 25;
+  }
+
+  .header-cat-badge,
+  .btn-text,
+  .cmd-trigger-label {
+    display: none;
+  }
+
+  .overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
-.toast-banner {
+.studio-toast {
   position: fixed;
-  right: 14px;
-  bottom: 34px;
-  z-index: 100;
-  padding: 6px 12px;
+  right: 16px;
+  bottom: 36px;
+  z-index: 120;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
   border-radius: var(--radius-md);
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: var(--shadow-md);
   border: 1px solid var(--border-strong);
   background: var(--bg-panel);
   color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: var(--shadow-md);
 }
 
-.toast-success {
-  border-color: var(--success);
+.studio-toast.toast-success {
+  border-color: rgba(31, 128, 100, 0.35);
   color: var(--success);
 }
 
-.toast-error {
-  border-color: var(--danger);
+.studio-toast.toast-error {
+  border-color: rgba(207, 61, 76, 0.35);
   color: var(--danger);
 }
 
-@media (max-width: 560px) {
-  .brand-name {
-    display: none;
-  }
-  .top-bar {
-    gap: 4px;
-    padding: 0 6px;
-  }
-  .seg-btn {
-    padding: 0 6px;
-    font-size: 11px;
-  }
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
 }
 </style>
