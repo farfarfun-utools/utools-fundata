@@ -120,9 +120,9 @@ describe('formats.ts', () => {
     expect(unescapeJsonString(escaped)).toBe(raw)
     expect(unescapeJsonString(JSON.stringify(raw))).toBe(raw)
 
-    const repaired = repairJsonLocal("{name: 'FunJSON', items: [1, 2,],}")
+    const repaired = repairJsonLocal("{name: 'FunData', items: [1, 2,],}")
     expect(repaired.changed).toBe(true)
-    expect(JSON.parse(repaired.output)).toEqual({ name: 'FunJSON', items: [1, 2] })
+    expect(JSON.parse(repaired.output)).toEqual({ name: 'FunData', items: [1, 2] })
   })
 })
 
@@ -130,7 +130,7 @@ describe('converter.ts', () => {
   it('supports all 10 data formats and lossless round-trips', () => {
     expect(CONVERT_FORMATS).toHaveLength(10)
 
-    const sampleObj = { name: 'FunJSON', version: 1, enabled: true, tags: ['a', 'b'] }
+    const sampleObj = { name: 'FunData', version: 1, enabled: true, tags: ['a', 'b'] }
     const jsonStr = JSON.stringify(sampleObj)
 
     // JSON <-> YAML
@@ -314,7 +314,7 @@ describe('i18n.ts & storage.ts', () => {
 
   it('translates zh-CN and en keys with parameter interpolation', () => {
     expect(t('zh-CN', 'app.name')).toBe('数形万变')
-    expect(t('en', 'app.name')).toBe('FunJSON')
+    expect(t('en', 'app.name')).toBe('FunData')
     expect(t('en', 'status.matches', { count: 4 })).toBe('4 matches')
     expect(t('zh-CN', 'status.lineCol', { line: 3, column: 7 })).toBe('第 3 行，第 7 列')
     expect(t('en', 'non.existent.key')).toBe('non.existent.key')
@@ -351,7 +351,7 @@ describe('i18n.ts & storage.ts', () => {
     expect(reloaded.tabs).toHaveLength(2)
 
     // Handles corrupted localStorage gracefully
-    localStorage.setItem('funjson.workspace.v1', '{broken-json')
+    localStorage.setItem('fundata.workspace.v1', '{broken-json')
     const recovered = loadWorkspace()
     expect(recovered.tabs).toHaveLength(1)
   })

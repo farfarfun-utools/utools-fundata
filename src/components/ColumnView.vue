@@ -2,11 +2,11 @@
 import { computed, ref, watch } from 'vue'
 import { inspectToken } from '../lib/decoders'
 import { parseJsonLike, type DataFormat } from '../lib/formats'
-import type { FunJsonSettings } from '../lib/storage'
+import type { FunDataSettings } from '../lib/storage'
 
 const props = defineProps<{
   content: string
-  settings: FunJsonSettings
+  settings: FunDataSettings
 }>()
 
 const emit = defineEmits<{

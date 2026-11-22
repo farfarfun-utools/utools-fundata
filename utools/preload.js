@@ -43,7 +43,7 @@ function readSafeFile(filePath) {
   }
 }
 
-window.funjson = {
+window.fundata = {
   onEnter(callback) {
     if (typeof callback !== 'function') return () => {}
     enterListener = callback

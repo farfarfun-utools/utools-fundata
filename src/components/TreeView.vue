@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { indentToString, parseJsonLike, type IndentOption } from '../lib/formats'
-import type { FunJsonSettings } from '../lib/storage'
+import type { FunDataSettings } from '../lib/storage'
 import TreeNode from './TreeNode.vue'
 
 const props = defineProps<{
   content: string
   indent: IndentOption
-  settings: FunJsonSettings
+  settings: FunDataSettings
 }>()
 
 const emit = defineEmits<{

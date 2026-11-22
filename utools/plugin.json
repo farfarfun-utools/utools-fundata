@@ -1,7 +1,7 @@
 {
   "pluginName": "数形万变",
   "version": "0.1.0",
-  "description": "数形万变 FunJSON：离线 JSON 与多格式数据处理工作台，支持文本/树形/栏列/表格/差异对比、JSONPath 查询、智能解码与 8 合 1 工具箱",
+  "description": "数形万变 FunData：离线 JSON 与多格式数据处理工作台，支持文本/树形/栏列/表格/差异对比、JSONPath 查询、智能解码与 8 合 1 工具箱",
   "author": "farfarfun",
   "main": "dist/index.html",
   "preload": "preload.js",
@@ -9,12 +9,29 @@
   "pluginSetting": {
     "height": 720
   },
-  "platform": ["darwin", "win32", "linux"],
+  "platform": [
+    "darwin",
+    "win32",
+    "linux"
+  ],
   "features": [
     {
-      "code": "funjson",
+      "code": "fundata",
       "explain": "打开 JSON 与多格式数据处理工作台",
-      "cmds": ["数形万变", "FunJSON", "json", "JSON", "JSON格式化", "数据转换", "yaml", "toml", "xml", "jwt", "protobuf"]
+      "cmds": [
+        "数形万变",
+        "FunData",
+        "fundata",
+        "json",
+        "JSON",
+        "JSON格式化",
+        "数据转换",
+        "yaml",
+        "toml",
+        "xml",
+        "jwt",
+        "protobuf"
+      ]
     },
     {
       "code": "json-regex",
@@ -62,13 +79,39 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "input": { "type": "string", "description": "待处理的 JSON 或 JSON5 文本" },
-          "mode": { "type": "string", "enum": ["format", "minify"], "description": "format 美化（默认）或 minify 压缩" },
-          "indent": { "type": "number", "description": "缩进空格数（1-8，默认 2）" },
-          "repair": { "type": "boolean", "description": "语法有误时是否尝试自动修复（默认 true）" },
-          "sortKeys": { "type": "string", "enum": ["none", "asc", "desc"], "description": "是否递归排序对象键（默认 none）" }
+          "input": {
+            "type": "string",
+            "description": "待处理的 JSON 或 JSON5 文本"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "format",
+              "minify"
+            ],
+            "description": "format 美化（默认）或 minify 压缩"
+          },
+          "indent": {
+            "type": "number",
+            "description": "缩进空格数（1-8，默认 2）"
+          },
+          "repair": {
+            "type": "boolean",
+            "description": "语法有误时是否尝试自动修复（默认 true）"
+          },
+          "sortKeys": {
+            "type": "string",
+            "enum": [
+              "none",
+              "asc",
+              "desc"
+            ],
+            "description": "是否递归排序对象键（默认 none）"
+          }
         },
-        "required": ["input"]
+        "required": [
+          "input"
+        ]
       }
     },
     "query_jsonpath": {
@@ -77,10 +120,19 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "input": { "type": "string", "description": "JSON 或 JSON5 文本" },
-          "expression": { "type": "string", "description": "JSONPath 表达式，如 $.users[*].name" }
+          "input": {
+            "type": "string",
+            "description": "JSON 或 JSON5 文本"
+          },
+          "expression": {
+            "type": "string",
+            "description": "JSONPath 表达式，如 $.users[*].name"
+          }
         },
-        "required": ["input", "expression"]
+        "required": [
+          "input",
+          "expression"
+        ]
       }
     },
     "convert_data_format": {
@@ -89,11 +141,48 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "input": { "type": "string", "description": "源数据文本" },
-          "from": { "type": "string", "enum": ["auto", "json", "json5", "yaml", "toml", "xml", "csv", "tsv", "ini", "ndjson", "query"], "description": "源格式，默认 auto 自动识别" },
-          "to": { "type": "string", "enum": ["json", "json5", "yaml", "toml", "xml", "csv", "tsv", "ini", "ndjson", "query"], "description": "目标格式" }
+          "input": {
+            "type": "string",
+            "description": "源数据文本"
+          },
+          "from": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "json",
+              "json5",
+              "yaml",
+              "toml",
+              "xml",
+              "csv",
+              "tsv",
+              "ini",
+              "ndjson",
+              "query"
+            ],
+            "description": "源格式，默认 auto 自动识别"
+          },
+          "to": {
+            "type": "string",
+            "enum": [
+              "json",
+              "json5",
+              "yaml",
+              "toml",
+              "xml",
+              "csv",
+              "tsv",
+              "ini",
+              "ndjson",
+              "query"
+            ],
+            "description": "目标格式"
+          }
         },
-        "required": ["input", "to"]
+        "required": [
+          "input",
+          "to"
+        ]
       }
     },
     "json_to_types": {
@@ -102,11 +191,34 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "input": { "type": "string", "description": "JSON 样本" },
-          "language": { "type": "string", "enum": ["typescript", "go", "java", "rust", "python", "kotlin", "swift", "csharp", "jsonschema"], "description": "目标语言" },
-          "rootName": { "type": "string", "description": "根类型名称，默认 Root" }
+          "input": {
+            "type": "string",
+            "description": "JSON 样本"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "typescript",
+              "go",
+              "java",
+              "rust",
+              "python",
+              "kotlin",
+              "swift",
+              "csharp",
+              "jsonschema"
+            ],
+            "description": "目标语言"
+          },
+          "rootName": {
+            "type": "string",
+            "description": "根类型名称，默认 Root"
+          }
         },
-        "required": ["input", "language"]
+        "required": [
+          "input",
+          "language"
+        ]
       }
     },
     "decode_jwt": {
@@ -115,9 +227,14 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "token": { "type": "string", "description": "JWT 字符串（header.payload.signature）" }
+          "token": {
+            "type": "string",
+            "description": "JWT 字符串（header.payload.signature）"
+          }
         },
-        "required": ["token"]
+        "required": [
+          "token"
+        ]
       }
     }
   }

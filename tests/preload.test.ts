@@ -9,7 +9,7 @@ const PRELOAD_PATH = path.resolve(__dirname, '../utools/preload.js')
 const PRELOAD_CODE = fs.readFileSync(PRELOAD_PATH, 'utf8')
 
 interface PreloadHarness {
-  window: { funjson: NonNullable<Window['funjson']> }
+  window: { fundata: NonNullable<Window['fundata']> }
   triggerEnter: (action: unknown) => void
   utoolsMock: {
     onPluginEnter: ReturnType<typeof vi.fn>
@@ -41,7 +41,7 @@ function loadPreload(): PreloadHarness {
   vm.runInContext(PRELOAD_CODE, context, { filename: PRELOAD_PATH })
 
   return {
-    window: sandboxWindow as unknown as { funjson: NonNullable<Window['funjson']> },
+    window: sandboxWindow as unknown as { fundata: NonNullable<Window['fundata']> },
     triggerEnter: (action: unknown) => {
       if (enterCb) enterCb(action)
     },
@@ -53,7 +53,7 @@ describe('utools/preload.js', () => {
   let tmpDir: string
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'funjson-preload-'))
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fundata-preload-'))
   })
 
   afterEach(() => {
@@ -66,10 +66,10 @@ describe('utools/preload.js', () => {
     triggerEnter(payload)
 
     const received: unknown[] = []
-    const unsubscribe = win.funjson.onEnter((action) => received.push(action))
+    const unsubscribe = win.fundata.onEnter((action) => received.push(action))
     expect(received).toEqual([payload])
 
-    const second = { code: 'funjson', type: 'text', payload: 'json' }
+    const second = { code: 'fundata', type: 'text', payload: 'json' }
     triggerEnter(second)
     expect(received).toEqual([payload, second])
 
@@ -84,30 +84,30 @@ describe('utools/preload.js', () => {
     fs.writeFileSync(goodFile, '{"ok":true}', 'utf8')
 
     utoolsMock.showOpenDialog.mockReturnValue([goodFile])
-    expect(win.funjson.openFile()).toEqual({ name: 'sample.json', content: '{"ok":true}' })
+    expect(win.fundata.openFile()).toEqual({ name: 'sample.json', content: '{"ok":true}' })
 
     // Symlink must be rejected
     const symFile = path.join(tmpDir, 'link.json')
     fs.symlinkSync(goodFile, symFile)
     utoolsMock.showOpenDialog.mockReturnValue([symFile])
-    expect(() => win.funjson.openFile()).toThrow('仅支持读取普通本地文件')
+    expect(() => win.fundata.openFile()).toThrow('仅支持读取普通本地文件')
 
     // Directory must be rejected
     utoolsMock.showOpenDialog.mockReturnValue([tmpDir])
-    expect(() => win.funjson.openFile()).toThrow('仅支持读取普通本地文件')
+    expect(() => win.fundata.openFile()).toThrow('仅支持读取普通本地文件')
 
     // Relative path must be rejected
     utoolsMock.showOpenDialog.mockReturnValue(['relative/file.json'])
-    expect(() => win.funjson.openFile()).toThrow('文件路径无效')
+    expect(() => win.fundata.openFile()).toThrow('文件路径无效')
 
     // Oversized (>16MB) file must be rejected
     const hugeFile = path.join(tmpDir, 'huge.json')
     fs.writeFileSync(hugeFile, Buffer.alloc(16 * 1024 * 1024 + 16, 0x61))
     utoolsMock.showOpenDialog.mockReturnValue([hugeFile])
-    expect(() => win.funjson.openFile()).toThrow('16 MB')
+    expect(() => win.fundata.openFile()).toThrow('16 MB')
 
     // readEntryFiles skips unreadable / symlink / oversized entries safely
-    const entries = win.funjson.readEntryFiles([
+    const entries = win.fundata.readEntryFiles([
       { path: goodFile },
       { path: symFile },
       { path: hugeFile },
@@ -121,13 +121,13 @@ describe('utools/preload.js', () => {
     const targetFile = path.join(tmpDir, 'exported.json')
     utoolsMock.showSaveDialog.mockReturnValue(targetFile)
 
-    const saved = win.funjson.saveFile('bad:/name*.json', '{"saved":1}')
+    const saved = win.fundata.saveFile('bad:/name*.json', '{"saved":1}')
     expect(saved).toBe(true)
     expect(fs.readFileSync(targetFile, 'utf8')).toBe('{"saved":1}')
     const saveArg = utoolsMock.showSaveDialog.mock.calls[0][0] as { defaultPath: string }
     expect(path.basename(saveArg.defaultPath)).toBe('bad__name_.json')
 
     const tooBig = 'a'.repeat(16 * 1024 * 1024 + 1)
-    expect(() => win.funjson.saveFile('big.json', tooBig)).toThrow('16 MB')
+    expect(() => win.fundata.saveFile('big.json', tooBig)).toThrow('16 MB')
   })
 })

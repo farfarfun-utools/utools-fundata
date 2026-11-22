@@ -33,12 +33,12 @@ import { getFormatMeta, parseJsonError, type DataFormat } from '../lib/formats'
 import { t } from '../lib/i18n'
 import { JSONPATH_EXAMPLES, runJsonPath } from '../lib/jsonpath'
 import { renumberProto } from '../lib/proto'
-import type { FunJsonSettings } from '../lib/storage'
+import type { FunDataSettings } from '../lib/storage'
 
 const props = defineProps<{
   modelValue: string
   format: DataFormat
-  settings: FunJsonSettings
+  settings: FunDataSettings
   isDark: boolean
   jsonPathOpen: boolean
 }>()

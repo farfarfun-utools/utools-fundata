@@ -4,10 +4,10 @@ import {
   convertDataFormatTool,
   decodeJwtTool,
   formatJsonTool,
-  FUNJSON_AI_TOOL_HANDLERS,
+  FUNDATA_AI_TOOL_HANDLERS,
   jsonToTypesTool,
   queryJsonPathTool,
-  registerFunJsonAiTools,
+  registerFunDataAiTools,
 } from '../src/lib/ai-tools'
 import {
   decodeText,
@@ -115,7 +115,7 @@ describe('keynaming.ts', () => {
 
 describe('decoders.ts', () => {
   it('round-trips all 6 encoding kinds including UTF-8 CJK and emoji', () => {
-    const text = '数形万变 FunJSON 🚀 & <tag> "hi"'
+    const text = '数形万变 FunData 🚀 & <tag> "hi"'
     for (const kind of ['base64', 'url', 'unicode', 'html', 'hex', 'json-string'] as const) {
       const encoded = encodeText(text, kind)
       expect(decodeText(encoded, kind)).toBe(text)
@@ -136,8 +136,8 @@ describe('decoders.ts', () => {
     expect(inspectToken('1732272000').some((i) => i.kind === 'timestamp')).toBe(true)
     expect(inspectToken('#0EA5E9').some((i) => i.kind === 'color' && i.previewColor === '#0EA5E9')).toBe(true)
     expect(inspectToken('rgb(14, 165, 233)').some((i) => i.kind === 'color')).toBe(true)
-    expect(inspectToken(encodeText('hello FunJSON', 'base64')).some((i) => i.kind === 'base64')).toBe(true)
-    expect(inspectToken('hello%20FunJSON').some((i) => i.kind === 'url')).toBe(true)
+    expect(inspectToken(encodeText('hello FunData', 'base64')).some((i) => i.kind === 'base64')).toBe(true)
+    expect(inspectToken('hello%20FunData').some((i) => i.kind === 'url')).toBe(true)
     expect(inspectToken('\\u6570\\u5f62').some((i) => i.kind === 'unicode' && i.value === '数形')).toBe(true)
     expect(inspectToken('"{\\"k\\":1}"').some((i) => i.kind === 'json-string')).toBe(true)
   })
@@ -178,7 +178,7 @@ describe('jwt.ts', () => {
     // Built-in sample JWT verifies cleanly and preserves large snowflakeId
     const sampleDecoded = decodeJwt(SAMPLES.jwt)
     expect(sampleDecoded.payload.snowflakeId).toBe('9007199254740999')
-    expect((await verifyJwtHmac(SAMPLES.jwt, 'funjson-secret')).valid).toBe(true)
+    expect((await verifyJwtHmac(SAMPLES.jwt, 'fundata-secret')).valid).toBe(true)
   })
 })
 
@@ -235,7 +235,7 @@ describe('ai-tools.ts', () => {
   })
 
   it('guards null, undefined, and malformed inputs across all 5 AI tool handlers', () => {
-    const handlers = Object.values(FUNJSON_AI_TOOL_HANDLERS)
+    const handlers = Object.values(FUNDATA_AI_TOOL_HANDLERS)
     for (const handler of handlers) {
       expect(handler(null).ok).toBe(false)
       expect(handler(undefined).ok).toBe(false)
@@ -274,7 +274,7 @@ describe('ai-tools.ts', () => {
         names.push(name)
       },
     }
-    const registered = registerFunJsonAiTools()
+    const registered = registerFunDataAiTools()
     expect(registered).toEqual([
       'format_json',
       'query_jsonpath',

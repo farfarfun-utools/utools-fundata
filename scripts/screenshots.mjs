@@ -143,7 +143,7 @@ try {
 
   assert.deepEqual(errors, [], '浏览器运行报错')
   assert.deepEqual(externalRequests, [], '不应请求任何外部网络资源')
-  process.stdout.write('FunJSON 浏览器检查与 5 张截图全部通过。\n')
+  process.stdout.write('FunData 浏览器检查与 5 张截图全部通过。\n')
 } catch (err) {
   if (browser) {
     try {

@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { t } from '../lib/i18n'
-import type { FunJsonSettings } from '../lib/storage'
+import type { FunDataSettings } from '../lib/storage'
 
 const props = defineProps<{
   open: boolean
-  settings: FunJsonSettings
+  settings: FunDataSettings
 }>()
 
 const emit = defineEmits<{
   close: []
-  'update:settings': [next: FunJsonSettings]
+  'update:settings': [next: FunDataSettings]
 }>()
 
 const TIMEZONES = [
@@ -23,14 +23,14 @@ const TIMEZONES = [
   'America/Los_Angeles',
 ]
 
-function patch(partial: Partial<FunJsonSettings>) {
+function patch(partial: Partial<FunDataSettings>) {
   emit('update:settings', {
     ...props.settings,
     ...partial,
   })
 }
 
-function patchSmart(partial: Partial<FunJsonSettings['smartDisplay']>) {
+function patchSmart(partial: Partial<FunDataSettings['smartDisplay']>) {
   emit('update:settings', {
     ...props.settings,
     smartDisplay: {
@@ -40,7 +40,7 @@ function patchSmart(partial: Partial<FunJsonSettings['smartDisplay']>) {
   })
 }
 
-function patchAi(partial: Partial<FunJsonSettings['ai']>) {
+function patchAi(partial: Partial<FunDataSettings['ai']>) {
   emit('update:settings', {
     ...props.settings,
     ai: {
@@ -247,7 +247,7 @@ function patchAi(partial: Partial<FunJsonSettings['ai']>) {
             <select
               class="pill-select"
               :value="settings.ai.provider"
-              @change="patchAi({ provider: ($event.target as HTMLSelectElement).value as FunJsonSettings['ai']['provider'] })"
+              @change="patchAi({ provider: ($event.target as HTMLSelectElement).value as FunDataSettings['ai']['provider'] })"
             >
               <option value="local">{{ t(settings.locale, 'settings.aiLocal') }}</option>
               <option value="utools-ai">{{ t(settings.locale, 'settings.aiUtools') }}</option>

@@ -44,7 +44,7 @@ export interface SmartDisplaySettings {
   foldSummary: boolean
 }
 
-export interface FunJsonSettings {
+export interface FunDataSettings {
   theme: ThemeMode
   locale: Locale
   defaultIndent: IndentOption
@@ -61,10 +61,10 @@ export interface WorkspaceState {
   viewMode: ViewMode
   activeTool: ToolId | null
   tabs: TabItem[]
-  settings: FunJsonSettings
+  settings: FunDataSettings
 }
 
-const STORAGE_KEY = 'funjson.workspace.v1'
+const STORAGE_KEY = 'fundata.workspace.v1'
 const WORKSPACE_VERSION = 1
 const MAX_PERSISTED_CONTENT_LEN = 250_000
 const DEFAULT_MAX_HISTORY = 20
@@ -72,13 +72,13 @@ const DEFAULT_MAX_HISTORY = 20
 export const SAMPLES = {
   json: JSON.stringify(
     {
-      service: 'funjson-workbench',
+      service: 'fundata-workbench',
       version: '0.1.0',
       generatedAt: 1732272000,
       accentColor: '#0EA5E9',
       metadata: {
         region: 'ap-east-1',
-        encodedTag: 'RnVuSlNPTiDmlbDlv6LkuIflj5g=',
+        encodedTag: 'RnVuRGF0YSDmlbDlvaLkuIflj5g=',
         callbackUrl: 'https%3A%2F%2Ffarfarfun.dev%2Fapi%3Fq%3Djson',
       },
       users: [
@@ -113,7 +113,7 @@ export const SAMPLES = {
     2,
   ),
   yaml: [
-    'service: funjson-gateway',
+    'service: fundata-gateway',
     'environment: production',
     'server:',
     '  host: 0.0.0.0',
@@ -130,7 +130,7 @@ export const SAMPLES = {
   protobuf: [
     'syntax = "proto3";',
     '',
-    'package funjson.v1;',
+    'package fundata.v1;',
     '',
     'enum JobStatus {',
     '  option allow_alias = true;',
@@ -151,8 +151,8 @@ export const SAMPLES = {
     '  map<string, string> labels = 50;',
     '}',
   ].join('\n'),
-  // Valid HS256 JWT signed with secret "funjson-secret"
-  jwt: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzIwMjYiLCJuYW1lIjoiQWxpY2UgQ2hlbiIsInJvbGUiOiJhZG1pbiIsInNub3dmbGFrZUlkIjo5MDA3MTk5MjU0NzQwOTk5LCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6NDEwMjQ0NDgwMH0.mWtgWlLhHT3AXobAYhP0jCbm7k-5LOu4EE-Pnr1dIdQ',
+  // Valid HS256 JWT signed with secret "fundata-secret"
+  jwt: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzIwMjYiLCJuYW1lIjoiQWxpY2UgQ2hlbiIsInJvbGUiOiJhZG1pbiIsInNub3dmbGFrZUlkIjo5MDA3MTk5MjU0NzQwOTk5LCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6NDEwMjQ0NDgwMH0.vVcn-jW6X9xqtAqwa0VHR48kJhpNJXjibTTBgJYI1z0',
 } as const
 
 function generateId(prefix: string): string {
@@ -162,7 +162,7 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
-export function createDefaultSettings(): FunJsonSettings {
+export function createDefaultSettings(): FunDataSettings {
   let timeZone = 'Asia/Shanghai'
   try {
     timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || timeZone
@@ -210,7 +210,7 @@ export function createTab(partial?: Partial<TabItem>): TabItem {
 export function createDefaultWorkspace(): WorkspaceState {
   const initialTab = createTab({
     id: 'tab_welcome',
-    title: 'funjson-workbench',
+    title: 'fundata-workbench',
     format: 'json',
     content: SAMPLES.json,
     diffRight: SAMPLES.json,
@@ -361,8 +361,8 @@ export function loadWorkspace(): WorkspaceState {
     if (tabs.length === 0) return fallback
 
     const defaults = createDefaultSettings()
-    const rawSettings = parsed.settings ?? ({} as Partial<FunJsonSettings>)
-    const settings: FunJsonSettings = {
+    const rawSettings = parsed.settings ?? ({} as Partial<FunDataSettings>)
+    const settings: FunDataSettings = {
       ...defaults,
       ...rawSettings,
       smartDisplay: {

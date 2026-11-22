@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { parseJsonLike } from '../lib/formats'
-import type { FunJsonSettings } from '../lib/storage'
+import type { FunDataSettings } from '../lib/storage'
 import { exportTable, jsonToTable } from '../lib/table'
 
 const props = defineProps<{
   content: string
-  settings: FunJsonSettings
+  settings: FunDataSettings
 }>()
 
 const emit = defineEmits<{
@@ -125,7 +125,7 @@ function toggleSort(col: string) {
 function handleExport(format: 'csv' | 'tsv' | 'markdown' | 'json') {
   const out = exportTable(activeTable.value.columns, filteredAndSortedRows.value, format)
   const ext = format === 'markdown' ? 'md' : format
-  emit('export', { filename: `funjson-table.${ext}`, content: out })
+  emit('export', { filename: `fundata-table.${ext}`, content: out })
 }
 </script>
 

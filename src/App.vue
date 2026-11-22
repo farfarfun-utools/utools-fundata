@@ -10,7 +10,7 @@ import TableView from './components/TableView.vue'
 import ToolboxView from './components/ToolboxView.vue'
 import TreeView from './components/TreeView.vue'
 import { repairJsonWithAi } from './lib/ai-repair'
-import { registerFunJsonAiTools } from './lib/ai-tools'
+import { registerFunDataAiTools } from './lib/ai-tools'
 import {
   DATA_FORMATS,
   detectFormat,
@@ -32,7 +32,7 @@ import {
   pushTabHistory,
   SAMPLES,
   saveWorkspace,
-  type FunJsonSettings,
+  type FunDataSettings,
   type TabHistoryEntry,
   type TabItem,
   type ToolId,
@@ -320,9 +320,9 @@ async function handleCopy(text: string) {
 }
 
 function handleOpenFile() {
-  if (typeof window !== 'undefined' && window.funjson?.openFile) {
+  if (typeof window !== 'undefined' && window.fundata?.openFile) {
     try {
-      const file = window.funjson.openFile()
+      const file = window.fundata.openFile()
       if (file) {
         const format = detectFormat(file.content, file.name)
         openNewTab({ content: file.content, format, filename: file.name, title: file.name })
@@ -355,12 +355,12 @@ async function handleBrowserFilePick(event: Event) {
 
 function handleExportFile(payload?: { filename: string; content: string }) {
   const ext = getFormatMeta(activeTab.value.format).ext
-  const filename = payload?.filename ?? activeTab.value.filename ?? `${activeTab.value.title || 'funjson'}.${ext}`
+  const filename = payload?.filename ?? activeTab.value.filename ?? `${activeTab.value.title || 'fundata'}.${ext}`
   const content = payload?.content ?? activeTab.value.content
 
-  if (typeof window !== 'undefined' && window.funjson?.saveFile) {
+  if (typeof window !== 'undefined' && window.fundata?.saveFile) {
     try {
-      const saved = window.funjson.saveFile(filename, content)
+      const saved = window.fundata.saveFile(filename, content)
       if (saved) notify(`${locale.value === 'en' ? 'Exported' : '已导出'} ${filename}`, 'success')
       return
     } catch (err) {
@@ -411,7 +411,7 @@ function handleApplyFromToolbox(payload: { content: string; format?: DataFormat 
 }
 
 function cycleTheme() {
-  const order: Array<FunJsonSettings['theme']> = ['system', 'light', 'dark']
+  const order: Array<FunDataSettings['theme']> = ['system', 'light', 'dark']
   const next = order[(order.indexOf(workspace.value.settings.theme) + 1) % order.length]
   workspace.value.settings.theme = next
 }
@@ -471,15 +471,15 @@ function handlePluginEnter(action: { code: string; type: string; payload: unknow
     ingestTextPayload(action.payload, undefined, false)
     return
   }
-  if (action.code === 'json-files' && Array.isArray(action.payload) && window.funjson?.readEntryFiles) {
-    const files = window.funjson.readEntryFiles(action.payload as Array<string | { path?: string }>)
+  if (action.code === 'json-files' && Array.isArray(action.payload) && window.fundata?.readEntryFiles) {
+    const files = window.fundata.readEntryFiles(action.payload as Array<string | { path?: string }>)
     for (const file of files) {
       const format = detectFormat(file.content, file.name)
       openNewTab({ content: file.content, format, filename: file.name, title: file.name })
     }
     return
   }
-  if (action.code === 'funjson') {
+  if (action.code === 'fundata') {
     workspace.value.activeTool = null
   }
 }
@@ -525,10 +525,10 @@ const onMediaChange = (e: MediaQueryListEvent) => {
 
 onMounted(() => {
   applyThemeAttribute()
-  registerFunJsonAiTools()
+  registerFunDataAiTools()
 
-  if (typeof window !== 'undefined' && window.funjson?.onEnter) {
-    unsubscribeEnter = window.funjson.onEnter(handlePluginEnter)
+  if (typeof window !== 'undefined' && window.fundata?.onEnter) {
+    unsubscribeEnter = window.fundata.onEnter(handlePluginEnter)
   }
   if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
     mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')

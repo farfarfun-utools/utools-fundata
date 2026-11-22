@@ -253,7 +253,7 @@ export function decodeJwtTool(params: unknown): ToolResultBase & {
   }
 }
 
-export const FUNJSON_AI_TOOL_HANDLERS = {
+export const FUNDATA_AI_TOOL_HANDLERS = {
   format_json: formatJsonTool,
   query_jsonpath: queryJsonPathTool,
   convert_data_format: convertDataFormatTool,
@@ -261,13 +261,13 @@ export const FUNJSON_AI_TOOL_HANDLERS = {
   decode_jwt: decodeJwtTool,
 } as const
 
-export function registerFunJsonAiTools(): string[] {
+export function registerFunDataAiTools(): string[] {
   const api = typeof window !== 'undefined' ? window.utools : undefined
   if (!api || typeof api.registerTool !== 'function') {
     return []
   }
   const registered: string[] = []
-  for (const [name, handler] of Object.entries(FUNJSON_AI_TOOL_HANDLERS)) {
+  for (const [name, handler] of Object.entries(FUNDATA_AI_TOOL_HANDLERS)) {
     api.registerTool(name, handler)
     registered.push(name)
   }

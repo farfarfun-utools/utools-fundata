@@ -2,7 +2,7 @@ export type Locale = 'zh-CN' | 'en'
 
 const ZH_CN = {
   'app.name': '数形万变',
-  'app.subtitle': 'FunJSON 离线多格式数据工作台',
+  'app.subtitle': 'FunData 离线多格式数据工作台',
   'nav.code': '文本',
   'nav.tree': '树形',
   'nav.columns': '栏列',
@@ -70,7 +70,7 @@ const ZH_CN = {
 export type I18nKey = keyof typeof ZH_CN
 
 const EN: Record<I18nKey, string> = {
-  'app.name': 'FunJSON',
+  'app.name': 'FunData',
   'app.subtitle': 'Offline JSON & Multi-Format Workbench',
   'nav.code': 'Code',
   'nav.tree': 'Tree',

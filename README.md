@@ -1,7 +1,7 @@
 <p align="center"><img src="utools/logo.png" width="88" alt="数形万变"></p>
-<h1 align="center">数形万变 · FunJSON</h1>
+<h1 align="center">数形万变 · FunData</h1>
 <p align="center">离线 JSON 与多格式数据处理工作台：五视图编辑、RFC 9535 JSONPath、智能解码与 8 合 1 开发者工具箱。</p>
-<p align="center"><a href="https://farfarfun.github.io/packages/utools-funjson/">产品主页</a> · <a href="https://github.com/farfarfun-utools/utools-funjson/actions">构建与截图</a> · <a href="https://github.com/farfarfun-utools/utools-funjson/issues">反馈问题</a> · <a href="https://github.com/farfarfun-utools/utools-plugins">更多插件</a></p>
+<p align="center"><a href="https://farfarfun.github.io/packages/utools-fundata/">产品主页</a> · <a href="https://github.com/farfarfun-utools/utools-fundata/actions">构建与截图</a> · <a href="https://github.com/farfarfun-utools/utools-fundata/issues">反馈问题</a> · <a href="https://github.com/farfarfun-utools/utools-plugins">更多插件</a></p>
 
 ![代码工作台与 JSONPath](docs/screenshots/home.png)
 
@@ -29,7 +29,7 @@
 
 | 入口关键词 / 触发方式 | 行为 |
 | --- | --- |
-| `数形万变` / `FunJSON` / `json` / `JSON格式化` / `数据转换` / `yaml` / `toml` / `xml` / `jwt` / `protobuf` | 打开工作台 |
+| `数形万变` / `FunData` / `json` / `JSON格式化` / `数据转换` / `yaml` / `toml` / `xml` / `jwt` / `protobuf` | 打开工作台 |
 | 剪贴板或输入框匹配 `{...}` / `[...]`（`JSON 格式化`） | 新建标签载入并自动格式化 JSON |
 | 选中 `.json` / `.yaml` / `.toml` / `.xml` / `.csv` / `.proto` / `.sql` 等文件 | 自动识别格式并在多标签中打开 |
 | 选中任意文本使用「用数形万变解析」 | 自动检测数据格式并载入工作台 |
@@ -63,8 +63,8 @@
 需要 **Node.js ≥ 22.22.2**，pnpm 版本见 `package.json#packageManager`。
 
 ```bash
-git clone https://github.com/farfarfun-utools/utools-funjson.git
-cd utools-funjson
+git clone https://github.com/farfarfun-utools/utools-fundata.git
+cd utools-fundata
 pnpm install
 sh build.sh
 ```

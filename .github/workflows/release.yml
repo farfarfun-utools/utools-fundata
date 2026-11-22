@@ -40,8 +40,8 @@ jobs:
       - name: Set package filename
         run: |
           version=$(node -p "require('./package.json').version")
-          echo "UPXS_NAME=utools-funjson-${version}.upxs" >> "$GITHUB_ENV"
-          echo "UPXS_FILE=release/utools-funjson-${version}.upxs" >> "$GITHUB_ENV"
+          echo "UPXS_NAME=utools-fundata-${version}.upxs" >> "$GITHUB_ENV"
+          echo "UPXS_FILE=release/utools-fundata-${version}.upxs" >> "$GITHUB_ENV"
       - name: Package and verify UPXS
         uses: farfarfun-action/utools-devtools@c48e8ce06b6700d21c73917b3b16d6e5674c13ef # v0.1.4
         with:
@@ -56,7 +56,7 @@ jobs:
       - name: Upload UPXS package
         uses: actions/upload-artifact@v4
         with:
-          name: utools-funjson-upxs
+          name: utools-fundata-upxs
           path: release/
           if-no-files-found: error
       - name: Publish stable release

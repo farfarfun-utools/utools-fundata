@@ -3,14 +3,14 @@ import { computed, ref } from 'vue'
 import { computeDiff } from '../lib/diff'
 import { formatContent, type DataFormat, type IndentOption } from '../lib/formats'
 import { t } from '../lib/i18n'
-import type { FunJsonSettings } from '../lib/storage'
+import type { FunDataSettings } from '../lib/storage'
 
 const props = defineProps<{
   left: string
   right: string
   format: DataFormat
   indent: IndentOption
-  settings: FunJsonSettings
+  settings: FunDataSettings
   currentTabContent: string
 }>()
 

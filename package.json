@@ -1,16 +1,16 @@
 {
-  "name": "@farfarfun/utools-funjson",
+  "name": "@farfarfun/utools-fundata",
   "funbuild": { "build": "sh build.sh" },
   "version": "0.1.0",
-  "description": "数形万变 FunJSON：离线 JSON 与多格式数据处理工作台，支持文本/树形/栏列/表格/差异对比、JSONPath 查询、智能解码与 8 合 1 工具箱",
+  "description": "数形万变 FunData：离线 JSON 与多格式数据处理工作台，支持文本/树形/栏列/表格/差异对比、JSONPath 查询、智能解码与 8 合 1 工具箱",
   "license": "MIT",
-  "homepage": "https://farfarfun.github.io/packages/utools-funjson/",
+  "homepage": "https://farfarfun.github.io/packages/utools-fundata/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/farfarfun-utools/utools-funjson.git"
+    "url": "https://github.com/farfarfun-utools/utools-fundata.git"
   },
   "bugs": {
-    "url": "https://github.com/farfarfun-utools/utools-funjson/issues"
+    "url": "https://github.com/farfarfun-utools/utools-fundata/issues"
   },
   "keywords": [
     "utools",

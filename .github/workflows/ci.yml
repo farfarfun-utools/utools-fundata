@@ -29,7 +29,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: matrix.node == '22'
         with:
-          name: utools-funjson
+          name: utools-fundata
           path: |
             utools/dist
             utools/plugin.json
@@ -58,18 +58,18 @@ jobs:
         uses: farfarfun-action/utools-devtools@c48e8ce06b6700d21c73917b3b16d6e5674c13ef # v0.1.4
         with:
           source: utools
-          output: release/utools-funjson.upxs
+          output: release/utools-fundata.upxs
           identity-file: identity.json
           mid: ${{ secrets.UTOOLS_MID }}
           uid: ${{ secrets.UTOOLS_UID }}
           cellphone: ${{ secrets.UTOOLS_CELLPHONE }}
       - name: Checksum UPXS
         if: steps.package.outputs.enabled == 'true'
-        run: cd release && sha256sum utools-funjson.upxs > SHA256SUMS
+        run: cd release && sha256sum utools-fundata.upxs > SHA256SUMS
       - name: Upload UPXS installation preview
         if: steps.package.outputs.enabled == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: utools-funjson-upxs
+          name: utools-fundata-upxs
           path: release/
           if-no-files-found: error

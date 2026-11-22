@@ -16,7 +16,7 @@ import { JSONPATH_EXAMPLES, runJsonPath } from '../lib/jsonpath'
 import { decodeJwt, verifyJwtHmac, type DecodedJwt } from '../lib/jwt'
 import { convertJsonKeys, NAMING_STYLES, type NamingStyle } from '../lib/keynaming'
 import { renumberProto } from '../lib/proto'
-import { SAMPLES, type FunJsonSettings, type ToolId } from '../lib/storage'
+import { SAMPLES, type FunDataSettings, type ToolId } from '../lib/storage'
 import { generateTypes, TARGET_LANGUAGES, type TargetLanguage } from '../lib/typegen'
 
 const props = defineProps<{
@@ -24,7 +24,7 @@ const props = defineProps<{
   currentContent: string
   currentFormat: DataFormat
   indent: IndentOption
-  settings: FunJsonSettings
+  settings: FunDataSettings
 }>()
 
 const emit = defineEmits<{
@@ -48,7 +48,7 @@ const TOOL_LIST: Array<{ id: ToolId; icon: string; key: string }> = [
 ]
 
 // 1. Repair state
-const repairInput = ref("{ name: 'FunJSON', version: 1, tags: ['offline', 'fast',], active: true }")
+const repairInput = ref("{ name: 'FunData', version: 1, tags: ['offline', 'fast',], active: true }")
 const repairOutput = ref('')
 const repairSource = ref<'local' | 'utools-ai' | 'openai' | null>(null)
 const repairError = ref('')
@@ -180,8 +180,8 @@ const ENCODING_KINDS: Array<{ id: EncodingKind; label: string }> = [
   { id: 'json-string', label: 'JSON String' },
 ]
 const encodingKind = ref<EncodingKind>('base64')
-const encodingInput = ref('数形万变 FunJSON')
-const encodingOutput = ref(encodeText('数形万变 FunJSON', 'base64'))
+const encodingInput = ref('数形万变 FunData')
+const encodingOutput = ref(encodeText('数形万变 FunData', 'base64'))
 const encodingError = ref('')
 
 function runEncode() {
@@ -217,7 +217,7 @@ function fillCurrentTimestamp() {
 
 // 7. JWT state
 const jwtInput = ref<string>(SAMPLES.jwt)
-const jwtSecret = ref('funjson-secret')
+const jwtSecret = ref('fundata-secret')
 const jwtVerifyState = ref<{ valid: boolean; algorithm: string; reason: string } | null>(null)
 
 const jwtDecoded = computed<{ data?: DecodedJwt; error: string }>(() => {
@@ -281,7 +281,7 @@ function loadFromCurrentTab() {
 function loadSampleForTool() {
   switch (props.activeTool) {
     case 'repair':
-      repairInput.value = "{ service: 'funjson', items: [1, 2, 3,], enabled: true, // comment\n}"
+      repairInput.value = "{ service: 'fundata', items: [1, 2, 3,], enabled: true, // comment\n}"
       void runRepair(false)
       break
     case 'types':
@@ -304,13 +304,13 @@ function loadSampleForTool() {
       )
       break
     case 'encoding':
-      encodingInput.value = '数形万变 FunJSON'
+      encodingInput.value = '数形万变 FunData'
       encodingKind.value = 'base64'
       runEncode()
       break
     case 'jwt':
       jwtInput.value = SAMPLES.jwt
-      jwtSecret.value = 'funjson-secret'
+      jwtSecret.value = 'fundata-secret'
       break
     case 'proto':
       protoInput.value = SAMPLES.protobuf

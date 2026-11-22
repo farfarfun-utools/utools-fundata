@@ -7,15 +7,15 @@ export interface UtoolsPluginEnterAction {
   option?: unknown
 }
 
-export interface FunJsonFilePayload {
+export interface FunDataFilePayload {
   name: string
   content: string
 }
 
-export interface FunJsonBridge {
+export interface FunDataBridge {
   onEnter(callback: (action: UtoolsPluginEnterAction) => void): () => void
-  openFile(): FunJsonFilePayload | null
-  readEntryFiles(files: Array<string | { path?: string }>): FunJsonFilePayload[]
+  openFile(): FunDataFilePayload | null
+  readEntryFiles(files: Array<string | { path?: string }>): FunDataFilePayload[]
   saveFile(defaultName: string, content: string): boolean
 }
 
@@ -66,7 +66,7 @@ export interface UtoolsApi {
 
 declare global {
   interface Window {
-    funjson?: FunJsonBridge
+    fundata?: FunDataBridge
     utools?: UtoolsApi
   }
 

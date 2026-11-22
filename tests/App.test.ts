@@ -35,7 +35,7 @@ describe('App.vue workbench integration', () => {
 
   afterEach(() => {
     delete window.utools
-    delete window.funjson
+    delete window.fundata
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
@@ -104,7 +104,7 @@ describe('App.vue workbench integration', () => {
     await wrapper.get('[data-testid="tool-btn-convert"]').trigger('click')
     expect(wrapper.find('[data-testid="tool-panel-convert"]').exists()).toBe(true)
     const yamlOut = (wrapper.get('[data-testid="convert-output"]').element as HTMLTextAreaElement).value
-    expect(yamlOut).toContain('service: funjson-workbench')
+    expect(yamlOut).toContain('service: fundata-workbench')
 
     // JWT tool
     await wrapper.get('[data-testid="tool-btn-jwt"]').trigger('click')
@@ -148,7 +148,7 @@ describe('App.vue workbench integration', () => {
 
     // Toggle locale zh-CN -> en
     await wrapper.get('[data-testid="locale-toggle-btn"]').trigger('click')
-    expect(wrapper.find('.brand-name').text()).toBe('FunJSON')
+    expect(wrapper.find('.brand-name').text()).toBe('FunData')
 
     // Open Settings modal and switch back to zh-CN
     await wrapper.get('[data-testid="settings-btn"]').trigger('click')
@@ -159,9 +159,9 @@ describe('App.vue workbench integration', () => {
     wrapper.unmount()
   })
 
-  it('handles window.funjson.onEnter for json-regex and json-over payloads', async () => {
+  it('handles window.fundata.onEnter for json-regex and json-over payloads', async () => {
     let enterHandler: ((action: { code: string; type: string; payload: unknown }) => void) | null = null
-    window.funjson = {
+    window.fundata = {
       onEnter(cb) {
         enterHandler = cb
         return () => {
