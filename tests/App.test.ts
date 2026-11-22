@@ -124,6 +124,15 @@ describe('FunData 10-in-1 Studio App', () => {
     await nextTick()
     expect(wrapper.find('[data-testid="tool-proto"]').exists()).toBe(true)
 
+    // 4. Split feature direct keyword routing (each feature has <= 5 cmds)
+    enterCb!({ code: 'fundata-encode', type: 'text', payload: 'jwt' })
+    await nextTick()
+    expect(wrapper.find('[data-testid="tool-jwt"]').exists()).toBe(true)
+
+    enterCb!({ code: 'fundata-regex', type: 'text', payload: '文本对比' })
+    await nextTick()
+    expect(wrapper.find('[data-testid="tool-text"]').exists()).toBe(true)
+
     wrapper.unmount()
   })
 })

@@ -27,7 +27,12 @@
 
 | 入口关键词 / 触发方式 | 行为 |
 | --- | --- |
-| `数形万变` / `FunData` / `数据转换` / `yaml` / `toml` / `xml` / `csv` / `jwt` / `protobuf` / `sql` / `cron` / `regex` / `正则` / `hash` / `md5` / `sha256` / `uuid` / `base64` / `时间戳` | 打开工作室总览或直达对应工具 |
+| `数形万变` / `FunData` / `数据转换` / `yaml` / `toml` | 打开工作室总览或格式互转 |
+| `格式转换` / `xml` / `csv` / `ini` | 直达 10 格式万能互转 |
+| `sql` / `SQL格式化` / `protobuf` | 直达 SQL 美化或 Protobuf 重编号 |
+| `base64` / `编解码` / `时间戳` / `jwt` | 直达编解码与时间戳或 JWT 验签签发 |
+| `hash` / `md5` / `sha256` / `uuid` | 直达哈希 / HMAC 与 UUID / 密钥生成 |
+| `regex` / `正则` / `cron` / `文本对比` | 直达正则实验室、Cron 解析或文本对比 |
 | 选中 `.yaml` / `.toml` / `.xml` / `.csv` / `.tsv` / `.ini` / `.ndjson` / `.proto` / `.sql` / `.txt` 文件 | 自动路由至对应工具加载文件内容 |
 | 选中任意文本使用「用数形万变处理」 | 智能识别 JWT / Cron / SQL / Protobuf / YAML·TOML·XML·CSV / Base64·时间戳并直达对应工具 |
 

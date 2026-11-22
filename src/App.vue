@@ -320,17 +320,29 @@ function handleUtoolsEnter(action: { code: string; type: string; payload: unknow
     return
   }
 
-  if (code === 'fundata' && type === 'text' && typeof payload === 'string') {
+  const featureDefaultTool: Record<string, ToolId> = {
+    'fundata-convert': 'convert',
+    'fundata-sql': 'sql',
+    'fundata-encode': 'encoding',
+    'fundata-crypto': 'crypto',
+    'fundata-regex': 'regex',
+  }
+
+  if (type === 'text' && typeof payload === 'string') {
     const kw = payload.trim().toLowerCase()
     const directMap: Record<string, ToolId> = {
       yaml: 'convert',
       toml: 'convert',
       xml: 'convert',
       csv: 'convert',
+      ini: 'convert',
       数据转换: 'convert',
+      格式转换: 'convert',
       sql: 'sql',
+      sql格式化: 'sql',
       protobuf: 'proto',
       base64: 'encoding',
+      编解码: 'encoding',
       时间戳: 'encoding',
       jwt: 'jwt',
       hash: 'crypto',
@@ -340,10 +352,16 @@ function handleUtoolsEnter(action: { code: string; type: string; payload: unknow
       regex: 'regex',
       正则: 'regex',
       cron: 'cron',
+      文本对比: 'text',
     }
     if (directMap[kw]) {
       selectView(directMap[kw])
+      return
     }
+  }
+
+  if (featureDefaultTool[code]) {
+    selectView(featureDefaultTool[code])
   }
 }
 

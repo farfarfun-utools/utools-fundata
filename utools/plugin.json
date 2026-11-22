@@ -21,24 +21,58 @@
       "cmds": [
         "数形万变",
         "FunData",
-        "fundata",
         "数据转换",
         "yaml",
-        "toml",
+        "toml"
+      ]
+    },
+    {
+      "code": "fundata-convert",
+      "explain": "10 格式万能互转（JSON / YAML / TOML / XML / CSV / INI）",
+      "cmds": [
+        "格式转换",
         "xml",
         "csv",
-        "jwt",
-        "protobuf",
+        "ini"
+      ]
+    },
+    {
+      "code": "fundata-sql",
+      "explain": "SQL 多方言格式化与 Protobuf 安全重编号",
+      "cmds": [
         "sql",
-        "cron",
-        "regex",
-        "正则",
+        "SQL格式化",
+        "protobuf"
+      ]
+    },
+    {
+      "code": "fundata-encode",
+      "explain": "编解码、多时区时间戳与 JWT 验签签发",
+      "cmds": [
+        "base64",
+        "编解码",
+        "时间戳",
+        "jwt"
+      ]
+    },
+    {
+      "code": "fundata-crypto",
+      "explain": "哈希 / HMAC 计算与 UUID / 密钥批量生成",
+      "cmds": [
         "hash",
         "md5",
         "sha256",
-        "uuid",
-        "base64",
-        "时间戳"
+        "uuid"
+      ]
+    },
+    {
+      "code": "fundata-regex",
+      "explain": "正则表达式实验室、Cron 表达式解析与文本对比",
+      "cmds": [
+        "regex",
+        "正则",
+        "cron",
+        "文本对比"
       ]
     },
     {
