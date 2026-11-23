@@ -33,6 +33,9 @@ export type IconName =
   | 'hash'
   | 'chevron-right'
   | 'calendar-clock'
+  | 'fingerprint'
+  | 'hard-drive'
+  | 'file-text'
 
 withDefaults(
   defineProps<{
@@ -266,6 +269,33 @@ withDefaults(
       <path d="M3 10h5" />
       <circle cx="16" cy="16" r="6" />
       <path d="M16 14v2.2l1.6 1" />
+    </template>
+
+    <template v-else-if="name === 'fingerprint'">
+      <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
+      <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
+      <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
+      <path d="M2 12a10 10 0 0 1 18-6" />
+      <path d="M2 16h.01" />
+      <path d="M21.8 16c.2-2 .131-5.354 0-6" />
+      <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
+      <path d="M8.65 22c.21-.66.45-1.32.57-2" />
+      <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
+    </template>
+
+    <template v-else-if="name === 'hard-drive'">
+      <line x1="22" x2="2" y1="12" y2="12" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+      <line x1="6" x2="6.01" y1="16" y2="16" />
+      <line x1="10" x2="10.01" y1="16" y2="16" />
+    </template>
+
+    <template v-else-if="name === 'file-text'">
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+      <path d="M10 9H8" />
+      <path d="M16 13H8" />
+      <path d="M16 17H8" />
     </template>
   </svg>
 </template>

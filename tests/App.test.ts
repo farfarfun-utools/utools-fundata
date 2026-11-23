@@ -4,7 +4,7 @@ import { nextTick } from 'vue'
 import App from '../src/App.vue'
 import { SAMPLES } from '../src/lib/storage'
 
-describe('FunData 11-in-1 Studio App', () => {
+describe('FunData 15-in-1 Studio App', () => {
   beforeEach(() => {
     const store = new Map<string, string>()
     Object.defineProperty(window, 'localStorage', {
@@ -27,16 +27,21 @@ describe('FunData 11-in-1 Studio App', () => {
     window.utools = undefined
   })
 
-  it('renders 11 tool cards in Overview and supports category & search filtering', async () => {
+  it('renders 15 decoupled tool cards in Overview and supports category & search filtering', async () => {
     const wrapper = mount(App)
     expect(wrapper.find('[data-testid="overview-grid"]').exists()).toBe(true)
-    expect(wrapper.findAll('.tool-card')).toHaveLength(11)
+    expect(wrapper.findAll('.tool-card')).toHaveLength(15)
 
-    // Filter by category: security (3 tools: encoding, jwt, crypto)
+    // Filter by category: security (4 tools: encoding, jwt, hash, idgen)
     await wrapper.find('[data-testid="cat-chip-security"]').trigger('click')
-    expect(wrapper.findAll('.tool-card')).toHaveLength(3)
+    expect(wrapper.findAll('.tool-card')).toHaveLength(4)
 
-    // Filter by search query
+    // Filter by category: textunits (5 tools: color, radix, bytes, diff, textbatch)
+    await wrapper.find('[data-testid="cat-chip-textunits"]').trigger('click')
+    expect(wrapper.findAll('.tool-card')).toHaveLength(5)
+
+    // Reset to all & filter by search query
+    await wrapper.find('[data-testid="cat-chip-all"]').trigger('click')
     await wrapper.find('[data-testid="overview-search-input"]').setValue('jwt')
     expect(wrapper.findAll('.tool-card')).toHaveLength(1)
     expect(wrapper.find('[data-testid="tool-card-jwt"]').exists()).toBe(true)
@@ -82,7 +87,7 @@ describe('FunData 11-in-1 Studio App', () => {
     expect(document.documentElement.dataset.theme).toBe('dark')
 
     await wrapper.find('[data-testid="locale-btn"]').trigger('click')
-    expect(wrapper.text()).toContain('All Data Tools · 11')
+    expect(wrapper.text()).toContain('All Data Tools · 15')
 
     wrapper.unmount()
   })
@@ -138,9 +143,27 @@ describe('FunData 11-in-1 Studio App', () => {
     expect(wrapper.find('[data-testid="tool-encoding"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="encoding-ts-tab"]').exists()).toBe(false)
 
+    enterCb!({ code: 'fundata-crypto', type: 'text', payload: 'uuid' })
+    await nextTick()
+    expect(wrapper.find('[data-testid="tool-idgen"]').exists()).toBe(true)
+
+    enterCb!({ code: 'fundata-crypto', type: 'text', payload: 'sha256' })
+    await nextTick()
+    expect(wrapper.find('[data-testid="tool-hash"]').exists()).toBe(true)
+
     enterCb!({ code: 'fundata-regex', type: 'text', payload: '文本对比' })
     await nextTick()
-    expect(wrapper.find('[data-testid="tool-text"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="tool-diff"]').exists()).toBe(true)
+
+    // Verify independent decoupled tools open cleanly from sidebar
+    await wrapper.find('[data-testid="nav-tool-textbatch"]').trigger('click')
+    expect(wrapper.find('[data-testid="tool-textbatch"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="nav-tool-radix"]').trigger('click')
+    expect(wrapper.find('[data-testid="tool-radix"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="nav-tool-bytes"]').trigger('click')
+    expect(wrapper.find('[data-testid="tool-bytes"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="nav-tool-color"]').trigger('click')
+    expect(wrapper.find('[data-testid="tool-color"]').exists()).toBe(true)
 
     wrapper.unmount()
   })

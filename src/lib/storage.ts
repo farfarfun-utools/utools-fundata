@@ -10,16 +10,20 @@ export type ToolId =
   | 'proto'
   | 'encoding'
   | 'jwt'
-  | 'crypto'
-  | 'regex'
+  | 'hash'
+  | 'idgen'
   | 'timestamp'
   | 'cron'
-  | 'units'
-  | 'text'
+  | 'regex'
+  | 'color'
+  | 'radix'
+  | 'bytes'
+  | 'diff'
+  | 'textbatch'
 
 export type ActiveView = 'overview' | ToolId
 
-export type ToolCategory = 'structure' | 'security' | 'productivity'
+export type ToolCategory = 'structure' | 'security' | 'datetime' | 'textunits'
 
 export type ToolTone =
   | 'violet'
@@ -69,7 +73,8 @@ export const TOOL_CATEGORIES: Array<{
 }> = [
   { id: 'structure', labelZh: '格式与结构', labelEn: 'Format & Structure' },
   { id: 'security', labelZh: '编码与安全', labelEn: 'Codec & Security' },
-  { id: 'productivity', labelZh: '正则与效率', labelEn: 'Regex & Utilities' },
+  { id: 'datetime', labelZh: '时间与正则', labelEn: 'Time & Regex' },
+  { id: 'textunits', labelZh: '换算与文本', labelEn: 'Units & Text' },
 ]
 
 export const TOOL_REGISTRY: ToolMeta[] = [
@@ -144,36 +149,36 @@ export const TOOL_REGISTRY: ToolMeta[] = [
     keywords: ['jwt', 'token', 'bearer', 'hs256', 'hs384', 'hs512', 'hmac', 'sign', 'verify', '令牌', '鉴权', '验签', '签发'],
   },
   {
-    id: 'crypto',
+    id: 'hash',
     category: 'security',
     icon: 'shield-check',
     tone: 'emerald',
-    nameZh: '哈希 / HMAC 与 UUID',
-    nameEn: 'Hash, HMAC & ID Gen',
-    shortZh: '哈希·UUID',
-    shortEn: 'Hash & UUID',
-    descZh: '实时并行计算 MD5 / SHA-1~512 / HMAC，批量生成 UUID v4 / ULID / NanoID / 随机密钥',
-    descEn: 'Parallel MD5/SHA/HMAC digests plus batch UUID v4, ULID, NanoID & secret generator',
-    tags: ['SHA-256', 'MD5', 'UUID', 'ULID'],
-    keywords: ['hash', 'hmac', 'md5', 'sha1', 'sha256', 'sha384', 'sha512', 'uuid', 'ulid', 'nanoid', 'secret', '哈希', '摘要', '密钥', '随机'],
+    nameZh: '哈希与 HMAC 摘要',
+    nameEn: 'Hash & HMAC Digest',
+    shortZh: '哈希·HMAC',
+    shortEn: 'Hash & HMAC',
+    descZh: '实时并行计算 MD5 / SHA-1 / SHA-256 / SHA-384 / SHA-512 摘要与 HMAC 签名',
+    descEn: 'Parallel MD5, SHA-1, SHA-256, SHA-384 & SHA-512 digests and HMAC signing',
+    tags: ['MD5', 'SHA-256', 'HMAC'],
+    keywords: ['hash', 'hmac', 'md5', 'sha1', 'sha256', 'sha384', 'sha512', 'digest', '哈希', '摘要', '签名'],
   },
   {
-    id: 'regex',
-    category: 'productivity',
-    icon: 'regex',
-    tone: 'rose',
-    nameZh: '正则表达式实验室',
-    nameEn: 'Regex Lab',
-    shortZh: '正则实验',
-    shortEn: 'Regex',
-    descZh: '实时匹配高亮、捕获组明细表、替换模板预览与 7 组高频开发正则预设',
-    descEn: 'Live match highlighting, capture group table, replace preview & 7 curated presets',
-    tags: ['Match', 'Groups', 'Replace'],
-    keywords: ['regex', 'regexp', 'pattern', 'match', 'replace', '正则', '匹配', '捕获组'],
+    id: 'idgen',
+    category: 'security',
+    icon: 'fingerprint',
+    tone: 'cyan',
+    nameZh: 'UUID 与密钥生成',
+    nameEn: 'UUID & Secret Generator',
+    shortZh: 'UUID·密钥',
+    shortEn: 'UUID & Keys',
+    descZh: '1–50 条批量生成 UUID v4 / ULID / NanoID / Hex 32·64 / Base64URL 随机密钥',
+    descEn: 'Batch generate 1–50 UUID v4, ULID, NanoID, Hex 32/64 & Base64URL secrets',
+    tags: ['UUID v4', 'ULID', 'NanoID'],
+    keywords: ['uuid', 'ulid', 'nanoid', 'secret', 'key', 'random', 'id', '密钥', '随机', '生成器'],
   },
   {
     id: 'timestamp',
-    category: 'productivity',
+    category: 'datetime',
     icon: 'calendar-clock',
     tone: 'indigo',
     nameZh: 'Unix 时间戳与多时区',
@@ -187,7 +192,7 @@ export const TOOL_REGISTRY: ToolMeta[] = [
   },
   {
     id: 'cron',
-    category: 'productivity',
+    category: 'datetime',
     icon: 'clock',
     tone: 'cyan',
     nameZh: 'Cron 表达式解析',
@@ -200,32 +205,88 @@ export const TOOL_REGISTRY: ToolMeta[] = [
     keywords: ['cron', 'crontab', 'schedule', 'timer', '定时', '调度', '表达式'],
   },
   {
-    id: 'units',
-    category: 'productivity',
-    icon: 'palette',
-    tone: 'violet',
-    nameZh: '颜色 / 进制 / 字节换算',
-    nameEn: 'Color, Radix & Bytes',
-    shortZh: '色值·进制',
-    shortEn: 'Color & Units',
-    descZh: 'HEX/RGB/HSL 与 WCAG 对比度检测、BigInt 多进制同步换算及 IEC/SI 存储单位转换',
-    descEn: 'HEX/RGB/HSL with WCAG contrast, BigInt radix converter & IEC/SI byte unit table',
-    tags: ['HEX/HSL', 'WCAG', 'BigInt', 'IEC'],
-    keywords: ['color', 'hex', 'rgb', 'hsl', 'wcag', 'radix', 'binary', 'octal', 'byte', 'kb', 'mb', 'gb', '颜色', '色值', '进制', '字节'],
+    id: 'regex',
+    category: 'datetime',
+    icon: 'regex',
+    tone: 'rose',
+    nameZh: '正则表达式实验室',
+    nameEn: 'Regex Lab',
+    shortZh: '正则实验',
+    shortEn: 'Regex',
+    descZh: '实时匹配高亮、捕获组明细表、替换模板预览与 7 组高频开发正则预设',
+    descEn: 'Live match highlighting, capture group table, replace preview & 7 curated presets',
+    tags: ['Match', 'Groups', 'Replace'],
+    keywords: ['regex', 'regexp', 'pattern', 'match', 'replace', '正则', '匹配', '捕获组'],
   },
   {
-    id: 'text',
-    category: 'productivity',
+    id: 'color',
+    category: 'textunits',
+    icon: 'palette',
+    tone: 'violet',
+    nameZh: '颜色与 WCAG 对比度',
+    nameEn: 'Color & WCAG Contrast',
+    shortZh: '颜色对比度',
+    shortEn: 'Color',
+    descZh: 'HEX / HEX8 / RGB / RGBA / HSL 双向换算，实时计算黑白文字 WCAG AA/AAA 对比度',
+    descEn: 'Convert HEX, RGB & HSL with live WCAG AA/AAA contrast ratings on light & dark text',
+    tags: ['HEX', 'RGB/HSL', 'WCAG'],
+    keywords: ['color', 'hex', 'rgb', 'rgba', 'hsl', 'wcag', 'contrast', '颜色', '色值', '对比度', '取色'],
+  },
+  {
+    id: 'radix',
+    category: 'textunits',
+    icon: 'hash',
+    tone: 'amber',
+    nameZh: 'BigInt 多进制换算',
+    nameEn: 'BigInt Radix Converter',
+    shortZh: '进制换算',
+    shortEn: 'Radix',
+    descZh: 'BigInt 精确同步转换 2 / 8 / 10 / 16 / 36 进制与位宽显示，大整数不丢精度',
+    descEn: 'Lossless BigInt conversion across Binary, Octal, Decimal, Hex & Base36 with bit length',
+    tags: ['Bin/Oct', 'Dec/Hex', 'Base36'],
+    keywords: ['radix', 'base', 'binary', 'octal', 'decimal', 'hex', 'base36', 'bigint', '进制', '二进制', '十六进制'],
+  },
+  {
+    id: 'bytes',
+    category: 'textunits',
+    icon: 'hard-drive',
+    tone: 'teal',
+    nameZh: '字节存储单位换算',
+    nameEn: 'Byte Unit Converter',
+    shortZh: '字节换算',
+    shortEn: 'Bytes',
+    descZh: '支持 IEC（1024）与 SI（1000）双标准，一键换算 B / KB / MB / GB / TB / PB',
+    descEn: 'Convert B, KB, MB, GB, TB & PB across both IEC (1024) and SI (1000) standards',
+    tags: ['IEC 1024', 'SI 1000', 'B–PB'],
+    keywords: ['byte', 'bytes', 'kb', 'mb', 'gb', 'tb', 'pb', 'kib', 'mib', 'gib', 'iec', 'si', '字节', '存储', '单位'],
+  },
+  {
+    id: 'diff',
+    category: 'textunits',
     icon: 'diff',
     tone: 'blue',
-    nameZh: '文本对比与批处理',
-    nameEn: 'Text Diff & Batch',
-    shortZh: '文本对比·批处理',
-    shortEn: 'Text & Diff',
-    descZh: '双行号并排文本对比（忽略空白）与去重、排序、加前后缀、词频 Top 10 批处理',
-    descEn: 'Side-by-side text diff plus dedupe, sort, affix transforms & Top 10 frequency stats',
-    tags: ['Diff', 'Dedupe', 'Sort', 'Freq'],
-    keywords: ['text', 'diff', 'compare', 'dedupe', 'sort', 'trim', 'lines', '对比', '差异', '去重', '排序', '批处理', '词频'],
+    nameZh: '双行号文本对比',
+    nameEn: 'Side-by-Side Text Diff',
+    shortZh: '文本对比',
+    shortEn: 'Text Diff',
+    descZh: '左右双栏并排文本对比、增删改统计、忽略空白切换与 Unified Patch 一键复制导出',
+    descEn: 'Side-by-side line diff with change stats, ignore-whitespace toggle & unified patch export',
+    tags: ['Side-by-Side', 'Patch', 'Diff'],
+    keywords: ['diff', 'compare', 'patch', 'merge', '文本对比', '对比', '差异', '比对'],
+  },
+  {
+    id: 'textbatch',
+    category: 'textunits',
+    icon: 'file-text',
+    tone: 'emerald',
+    nameZh: '文本批处理与统计',
+    nameEn: 'Text Batch & Stats',
+    shortZh: '文本批处理',
+    shortEn: 'Text Batch',
+    descZh: '一键去重、升降序、逆序、去空行、Trim、批量加前后缀及实时字数与 Top 10 行频',
+    descEn: 'Dedupe, sort, reverse, trim, batch affix transforms with live word stats & Top 10 frequency',
+    tags: ['Dedupe', 'Sort', 'Affix', 'Freq'],
+    keywords: ['text', 'batch', 'dedupe', 'sort', 'trim', 'lines', 'affix', 'freq', '批处理', '去重', '排序', '词频', '统计'],
   },
 ]
 
@@ -341,7 +402,12 @@ export function detectRouteForInput(rawInput: string, filename?: string): RouteD
     /^(?:#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\()/i.test(trimmed) &&
     parseColor(trimmed) !== null
   ) {
-    return { tool: 'units', payload: trimmed }
+    return { tool: 'color', payload: trimmed }
+  }
+
+  // 3b. Hex / Binary / Octal radix literals
+  if (!trimmed.includes('\n') && /^(?:0x[0-9a-f]+|0b[01]+|0o[0-7]+)$/i.test(trimmed)) {
+    return { tool: 'radix', payload: trimmed }
   }
 
   // 4. SQL / Protobuf / Convertible formats
@@ -391,7 +457,7 @@ export function detectRouteForInput(rawInput: string, filename?: string): RouteD
     return { tool: 'encoding', payload: trimmed }
   }
 
-  return { tool: 'text', payload: rawInput }
+  return { tool: 'textbatch', payload: rawInput }
 }
 
 const STORAGE_KEY = 'fundata.studio.v2'
@@ -442,6 +508,12 @@ function getSafeStorage(): Storage | null {
 
 const VALID_VIEWS = new Set<string>(['overview', ...TOOL_REGISTRY.map((t) => t.id)])
 
+const LEGACY_VIEW_MAP: Record<string, ActiveView> = {
+  crypto: 'hash',
+  units: 'color',
+  text: 'diff',
+}
+
 export function loadStudioState(): StudioState {
   const fallback = createDefaultStudioState()
   const storage = getSafeStorage()
@@ -477,10 +549,11 @@ export function loadStudioState(): StudioState {
           : defaults.timeZone,
     }
 
-    const activeView =
-      typeof parsed.activeView === 'string' && VALID_VIEWS.has(parsed.activeView)
-        ? (parsed.activeView as ActiveView)
+    const rawView =
+      typeof parsed.activeView === 'string'
+        ? (LEGACY_VIEW_MAP[parsed.activeView] ?? parsed.activeView)
         : 'overview'
+    const activeView = VALID_VIEWS.has(rawView) ? (rawView as ActiveView) : 'overview'
 
     return {
       version: STUDIO_VERSION,

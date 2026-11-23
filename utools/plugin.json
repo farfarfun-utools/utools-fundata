@@ -1,7 +1,7 @@
 {
   "pluginName": "数形万变",
   "version": "0.1.0",
-  "description": "数形万变 FunData：离线 11 合 1 开发者数据工具箱，支持 10 格式互转、文本编解码、Unix 时间戳、JWT 验签签发、Protobuf、SQL、哈希/UUID、正则、Cron、色值进制与文本对比",
+  "description": "数形万变 FunData：离线 15 合 1 开发者数据工具箱，涵盖 10 格式互转、SQL、Protobuf、文本编解码、JWT、哈希/HMAC、UUID/密钥、时间戳、Cron、正则、颜色、进制、字节、文本对比与批处理",
   "author": "farfarfun",
   "main": "dist/index.html",
   "preload": "preload.js",
@@ -17,7 +17,7 @@
   "features": [
     {
       "code": "fundata",
-      "explain": "打开数形万变 11 合 1 开发者数据工具箱",
+      "explain": "打开数形万变 15 合 1 开发者数据工具箱",
       "cmds": [
         "数形万变",
         "FunData",

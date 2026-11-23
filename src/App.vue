@@ -12,17 +12,21 @@ import logoUrl from '../utools/logo.png'
 import AppIcon, { type IconName } from './components/AppIcon.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import SettingsModal from './components/SettingsModal.vue'
+import BytesTool from './components/tools/BytesTool.vue'
+import ColorTool from './components/tools/ColorTool.vue'
 import ConvertTool from './components/tools/ConvertTool.vue'
 import CronTool from './components/tools/CronTool.vue'
-import CryptoTool from './components/tools/CryptoTool.vue'
 import EncodingTool from './components/tools/EncodingTool.vue'
+import HashTool from './components/tools/HashTool.vue'
+import IdGenTool from './components/tools/IdGenTool.vue'
 import JwtTool from './components/tools/JwtTool.vue'
 import ProtoTool from './components/tools/ProtoTool.vue'
+import RadixTool from './components/tools/RadixTool.vue'
 import RegexTool from './components/tools/RegexTool.vue'
 import SqlTool from './components/tools/SqlTool.vue'
-import TextTool from './components/tools/TextTool.vue'
+import TextBatchTool from './components/tools/TextBatchTool.vue'
+import TextDiffTool from './components/tools/TextDiffTool.vue'
 import TimestampTool from './components/tools/TimestampTool.vue'
-import UnitsTool from './components/tools/UnitsTool.vue'
 import { registerFunDataAiTools } from './lib/ai-tools'
 import { t } from './lib/i18n'
 import {
@@ -51,12 +55,16 @@ const TOOL_COMPONENTS: Record<ToolId, Component> = {
   proto: ProtoTool,
   encoding: EncodingTool,
   jwt: JwtTool,
-  crypto: CryptoTool,
-  regex: RegexTool,
+  hash: HashTool,
+  idgen: IdGenTool,
   timestamp: TimestampTool,
   cron: CronTool,
-  units: UnitsTool,
-  text: TextTool,
+  regex: RegexTool,
+  color: ColorTool,
+  radix: RadixTool,
+  bytes: BytesTool,
+  diff: TextDiffTool,
+  textbatch: TextBatchTool,
 }
 
 const studio = ref<StudioState>(loadStudioState())
@@ -326,7 +334,7 @@ function handleUtoolsEnter(action: { code: string; type: string; payload: unknow
     'fundata-convert': 'convert',
     'fundata-sql': 'sql',
     'fundata-encode': 'encoding',
-    'fundata-crypto': 'crypto',
+    'fundata-crypto': 'hash',
     'fundata-regex': 'regex',
   }
 
@@ -347,14 +355,18 @@ function handleUtoolsEnter(action: { code: string; type: string; payload: unknow
       编解码: 'encoding',
       时间戳: 'timestamp',
       jwt: 'jwt',
-      hash: 'crypto',
-      md5: 'crypto',
-      sha256: 'crypto',
-      uuid: 'crypto',
+      hash: 'hash',
+      md5: 'hash',
+      sha256: 'hash',
+      uuid: 'idgen',
       regex: 'regex',
       正则: 'regex',
       cron: 'cron',
-      文本对比: 'text',
+      颜色: 'color',
+      进制: 'radix',
+      字节: 'bytes',
+      文本对比: 'diff',
+      文本批处理: 'textbatch',
     }
     if (directMap[kw]) {
       selectView(directMap[kw])
@@ -635,6 +647,7 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 class="chip-btn"
+                data-testid="cat-chip-all"
                 :class="{ active: overviewCategory === 'all' }"
                 @click="overviewCategory = 'all'"
               >

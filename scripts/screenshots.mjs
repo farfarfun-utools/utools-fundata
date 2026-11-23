@@ -94,7 +94,7 @@ try {
   await session.evaluate('document.fonts.ready')
   await raf(3)
 
-  // 1. Overview 10-tool Studio Card Grid (light)
+  // 1. Overview 15-tool Studio Card Grid (light)
   await capture('home')
 
   // 2. 10-Format Converter split workspace (JSON -> YAML)
@@ -112,8 +112,8 @@ try {
   await session.waitForExpression('document.querySelector("[data-testid=cron-runs-table]") !== null')
   await capture('cron')
 
-  // 5. Dark mode Studio view (Crypto Hash & HMAC workspace)
-  await click('[data-testid="nav-tool-crypto"]')
+  // 5. Dark mode Studio view (Hash & HMAC workspace)
+  await click('[data-testid="nav-tool-hash"]')
   await session.waitForExpression('document.querySelector("[data-testid=hash-row-sha256]") !== null')
   // Cycle theme: system -> light -> dark
   await click('[data-testid="theme-btn"]')
