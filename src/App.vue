@@ -463,6 +463,7 @@ onBeforeUnmount(() => {
           class="nav-item nav-overview-item"
           data-testid="nav-overview"
           :class="{ active: isOverview }"
+          :aria-current="isOverview ? 'page' : undefined"
           :title="t(locale, 'nav.overview')"
           @click="selectView('overview')"
         >
@@ -484,6 +485,7 @@ onBeforeUnmount(() => {
             class="nav-item"
             :data-testid="`nav-tool-${tool.id}`"
             :class="{ active: studio.activeView === tool.id }"
+            :aria-current="studio.activeView === tool.id ? 'page' : undefined"
             :title="isEn ? tool.nameEn : tool.nameZh"
             @click="selectView(tool.id)"
           >

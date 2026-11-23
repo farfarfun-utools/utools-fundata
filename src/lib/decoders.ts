@@ -83,6 +83,39 @@ export function encodeText(input: string, kind: EncodingKind): string {
   }
 }
 
+function safeFromCodePoint(codePoint: number, fallback: string): string {
+  if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff) {
+    return fallback
+  }
+  return String.fromCodePoint(codePoint)
+}
+
+function wrapUnquotedJsonString(input: string): string {
+  let out = '"'
+  let escaped = false
+  for (let i = 0; i < input.length; i += 1) {
+    const ch = input[i]
+    if (escaped) {
+      out += ch
+      escaped = false
+      continue
+    }
+    if (ch === '\\') {
+      out += ch
+      escaped = true
+      continue
+    }
+    if (ch === '"') out += '\\"'
+    else if (ch === '\n') out += '\\n'
+    else if (ch === '\r') out += '\\r'
+    else if (ch === '\t') out += '\\t'
+    else out += ch
+  }
+  if (escaped) out += '\\'
+  out += '"'
+  return out
+}
+
 export function decodeText(input: string, kind: EncodingKind): string {
   switch (kind) {
     case 'base64': {
@@ -93,19 +126,19 @@ export function decodeText(input: string, kind: EncodingKind): string {
       return decodeURIComponent(input.replace(/\+/g, ' '))
     case 'unicode':
       return input
-        .replace(/\\u\{([0-9a-fA-F]+)\}/g, (_, hex: string) =>
-          String.fromCodePoint(parseInt(hex, 16)),
+        .replace(/\\u\{([0-9a-fA-F]+)\}/g, (full, hex: string) =>
+          safeFromCodePoint(parseInt(hex, 16), full),
         )
         .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) =>
           String.fromCharCode(parseInt(hex, 16)),
         )
     case 'html':
       return input
-        .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex: string) =>
-          String.fromCodePoint(parseInt(hex, 16)),
+        .replace(/&#x([0-9a-fA-F]+);/gi, (full, hex: string) =>
+          safeFromCodePoint(parseInt(hex, 16), full),
         )
-        .replace(/&#(\d+);/g, (_, dec: string) =>
-          String.fromCodePoint(parseInt(dec, 10)),
+        .replace(/&#(\d+);/g, (full, dec: string) =>
+          safeFromCodePoint(parseInt(dec, 10), full),
         )
         .replace(/&nbsp;/g, ' ')
         .replace(/&quot;/g, '"')
@@ -127,12 +160,15 @@ export function decodeText(input: string, kind: EncodingKind): string {
     }
     case 'json-string': {
       const trimmed = input.trim()
-      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-        const parsed = JSON.parse(trimmed)
-        if (typeof parsed === 'string') return parsed
+      if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        try {
+          const parsed = JSON.parse(trimmed)
+          if (typeof parsed === 'string') return parsed
+        } catch {
+          // fall through to unquoted unescape
+        }
       }
-      const wrapped = `"${input.replace(/(^|[^\\])"/g, '$1\\"')}"`
-      return JSON.parse(wrapped) as string
+      return JSON.parse(wrapUnquotedJsonString(input)) as string
     }
   }
 }
@@ -161,33 +197,38 @@ export function formatDateInTimeZone(date: Date, timeZone?: string): string {
   }
 }
 
-export function formatRelativeTime(diffMs: number): string {
+export function formatRelativeTime(diffMs: number, locale: 'zh-CN' | 'en' = 'en'): string {
   const abs = Math.abs(diffMs)
   const future = diffMs > 0
-  if (abs < 5000) return 'just now'
+  const isZh = locale === 'zh-CN'
+  if (abs < 5000) return isZh ? '刚刚' : 'just now'
 
-  const units: Array<[number, string]> = [
-    [1000 * 60 * 60 * 24 * 365, 'year'],
-    [1000 * 60 * 60 * 24 * 30, 'month'],
-    [1000 * 60 * 60 * 24, 'day'],
-    [1000 * 60 * 60, 'hour'],
-    [1000 * 60, 'minute'],
-    [1000, 'second'],
+  const units: Array<[number, string, string]> = [
+    [1000 * 60 * 60 * 24 * 365, 'year', '年'],
+    [1000 * 60 * 60 * 24 * 30, 'month', '个月'],
+    [1000 * 60 * 60 * 24, 'day', '天'],
+    [1000 * 60 * 60, 'hour', '小时'],
+    [1000 * 60, 'minute', '分钟'],
+    [1000, 'second', '秒'],
   ]
 
-  for (const [unitMs, label] of units) {
+  for (const [unitMs, labelEn, labelZh] of units) {
     if (abs >= unitMs) {
       const count = Math.floor(abs / unitMs)
-      const plural = count === 1 ? label : `${label}s`
+      if (isZh) {
+        return future ? `${count} ${labelZh}后` : `${count} ${labelZh}前`
+      }
+      const plural = count === 1 ? labelEn : `${labelEn}s`
       return future ? `in ${count} ${plural}` : `${count} ${plural} ago`
     }
   }
-  return 'just now'
+  return isZh ? '刚刚' : 'just now'
 }
 
 export function formatTimestamp(
   ts: number | string,
   timeZone = 'Asia/Shanghai',
+  locale: 'zh-CN' | 'en' = 'en',
 ): TimestampInfo | null {
   const raw = typeof ts === 'string' ? ts.trim() : String(ts)
   if (!/^-?\d+(?:\.\d+)?$/.test(raw)) return null
@@ -203,7 +244,7 @@ export function formatTimestamp(
   const iso = date.toISOString()
   const rfc2822 = date.toUTCString()
   const local = formatDateInTimeZone(date, timeZone)
-  const relative = formatRelativeTime(milliseconds - Date.now())
+  const relative = formatRelativeTime(milliseconds - Date.now(), locale)
   const zones: TimestampZoneEntry[] = MULTI_TIMEZONES.map((z) => ({
     timeZone: z.id,
     label: z.label,

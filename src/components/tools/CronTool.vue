@@ -28,7 +28,11 @@ const TIMEZONES = [
 ]
 
 const parsed = computed(() =>
-  parseCron(expression.value, { count: 10, timeZone: timeZone.value }),
+  parseCron(expression.value, {
+    count: 10,
+    timeZone: timeZone.value,
+    locale: props.settings.locale,
+  }),
 )
 
 watch(
@@ -296,9 +300,8 @@ defineExpose({ loadSample, applyInput, getExportPayload })
 .cf-sum {
   font-size: 11px;
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
+  word-break: break-word;
 }
 
 .cron-runs-card {

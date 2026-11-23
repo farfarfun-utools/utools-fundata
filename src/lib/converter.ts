@@ -32,14 +32,19 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
+function safeCodePoint(cp: number, fallback: string): string {
+  if (!Number.isInteger(cp) || cp < 0 || cp > 0x10ffff) return fallback
+  return String.fromCodePoint(cp)
+}
+
 function unescapeXmlEntities(str: string): string {
   return str
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (full, hex: string) => safeCodePoint(parseInt(hex, 16), full))
+    .replace(/&#(\d+);/g, (full, dec: string) => safeCodePoint(parseInt(dec, 10), full))
     .replace(/&amp;/g, '&')
 }
 
@@ -118,6 +123,7 @@ export function parseXmlToJson(input: string): unknown {
   const cleaned = input
     .replace(/^\uFEFF/, '')
     .replace(/<\?[\s\S]*?\?>/g, '')
+    .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
     .replace(/<!--[\s\S]*?-->/g, '')
     .trim()
 
@@ -266,15 +272,16 @@ export function serializeJsonToXml(data: unknown, indent: IndentOption = '2'): s
 }
 
 export function parseDelimited(input: string, delimiter: ',' | '\t'): Record<string, string>[] {
+  const cleanedInput = input.replace(/^\uFEFF/, '')
   const rows: string[][] = []
   let currentRow: string[] = []
   let currentCell = ''
   let inQuotes = false
   let i = 0
 
-  while (i < input.length) {
-    const ch = input[i]
-    const next = input[i + 1]
+  while (i < cleanedInput.length) {
+    const ch = cleanedInput[i]
+    const next = cleanedInput[i + 1]
 
     if (inQuotes) {
       if (ch === '"' && next === '"') {
@@ -396,10 +403,10 @@ export function serializeDelimited(data: unknown, delimiter: ',' | '\t'): string
 
 function parseIniScalar(raw: string): unknown {
   const trimmed = raw.trim()
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1).replace(/\\(["\\])/g, '$1')
+  }
+  if (trimmed.length >= 2 && trimmed.startsWith("'") && trimmed.endsWith("'")) {
     return trimmed.slice(1, -1)
   }
   if (trimmed === 'true') return true
@@ -416,7 +423,7 @@ export function parseIniToJson(input: string): Record<string, unknown> {
   const root: Record<string, unknown> = {}
   let current: Record<string, unknown> = root
 
-  for (const rawLine of input.split(/\r?\n/)) {
+  for (const rawLine of input.replace(/^\uFEFF/, '').split(/\r?\n/)) {
     const line = rawLine.trim()
     if (!line || line.startsWith(';') || line.startsWith('#')) continue
 
@@ -524,6 +531,15 @@ export function serializeJsonToNdjson(data: unknown): string {
   return JSON.stringify(data)
 }
 
+function safeDecodeQueryPart(raw: string): string {
+  const plusAsSpace = raw.replace(/\+/g, ' ')
+  try {
+    return decodeURIComponent(plusAsSpace)
+  } catch {
+    return plusAsSpace
+  }
+}
+
 export function parseQueryToJson(input: string): Record<string, unknown> {
   let queryStr = input.trim()
   const qIndex = queryStr.indexOf('?')
@@ -545,8 +561,8 @@ export function parseQueryToJson(input: string): Record<string, unknown> {
     const eqIdx = part.indexOf('=')
     const rawKey = eqIdx === -1 ? part : part.slice(0, eqIdx)
     const rawVal = eqIdx === -1 ? '' : part.slice(eqIdx + 1)
-    const key = decodeURIComponent(rawKey.replace(/\+/g, ' '))
-    const value = decodeURIComponent(rawVal.replace(/\+/g, ' '))
+    const key = safeDecodeQueryPart(rawKey)
+    const value = safeDecodeQueryPart(rawVal)
 
     if (Object.prototype.hasOwnProperty.call(out, key)) {
       const existing = out[key]
@@ -790,7 +806,8 @@ export function convertFormat(
   indent: IndentOption = '2',
 ): { output: string; detectedFrom: ConvertFormat } {
   const detectedFrom = from === 'auto' ? detectConvertFormat(input) : from
-  const parsed = parseByFormat(input, detectedFrom)
-  const output = serializeByFormat(parsed, to, indent)
+  const rawParsed = parseByFormat(input, detectedFrom)
+  const parsed = rawParsed === undefined ? null : rawParsed
+  const output = serializeByFormat(parsed, to, indent) ?? ''
   return { output, detectedFrom }
 }

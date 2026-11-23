@@ -19,7 +19,9 @@ const isEn = computed(() => props.settings.locale === 'en')
 const tsInput = ref('1763819065')
 const dateInput = ref('2026-11-22 21:44:25')
 
-const tsInfo = computed(() => formatTimestamp(tsInput.value, props.settings.timeZone))
+const tsInfo = computed(() =>
+  formatTimestamp(tsInput.value, props.settings.timeZone, props.settings.locale),
+)
 const dateParsed = computed(() => parseDateToTimestamp(dateInput.value))
 
 function fillCurrentTime() {

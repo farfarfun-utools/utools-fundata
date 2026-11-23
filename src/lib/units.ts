@@ -146,7 +146,7 @@ export function parseColor(input: string): RgbaColor | null {
 function relativeLuminance(c: RgbaColor): number {
   const channel = (v: number) => {
     const s = v / 255
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
   }
   return 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b)
 }

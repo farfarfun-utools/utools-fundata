@@ -66,6 +66,22 @@ describe('1. Converter (10 formats)', () => {
 
     const json5Out = convertFormat(json, 'json', 'json5')
     expect(json5Out.output).toContain("service: 'fundata'")
+
+    // Edge cases: Excel UTF-8 BOM CSV, INI escaped quotes, comment-only YAML, malformed % in query, DOCTYPE XML
+    const bomCsv = convertFormat('\uFEFFid,name\n1,Alice', 'csv', 'json')
+    expect(JSON.parse(bomCsv.output)).toEqual([{ id: '1', name: 'Alice' }])
+
+    const quotedIni = convertFormat('msg = "say \\"hi\\"; ok"', 'ini', 'json')
+    expect(JSON.parse(quotedIni.output)).toEqual({ msg: 'say "hi"; ok' })
+
+    const commentYaml = convertFormat('# only a comment\n', 'yaml', 'json')
+    expect(commentYaml.output).toBe('null')
+
+    const badPercentQuery = convertFormat('rate=100%&note=ok', 'query', 'json')
+    expect(JSON.parse(badPercentQuery.output)).toEqual({ rate: '100%', note: 'ok' })
+
+    const doctypeXml = convertFormat('<!DOCTYPE note><note><a>1</a></note>', 'xml', 'json')
+    expect(JSON.parse(doctypeXml.output)).toEqual({ note: { a: 1 } })
   })
 })
 
@@ -92,6 +108,11 @@ describe('2. Decoders & Timestamps', () => {
 
     const parsed = parseDateToTimestamp('2023-11-14T22:13:20.000Z')
     expect(parsed?.seconds).toBe(1700000000)
+
+    // Out-of-range Unicode / HTML code points and consecutive unescaped quotes in json-string
+    expect(decodeText('\\u{999999}', 'unicode')).toBe('\\u{999999}')
+    expect(decodeText('&#99999999;', 'html')).toBe('&#99999999;')
+    expect(decodeText('a""b', 'json-string')).toBe('a""b')
   })
 })
 
@@ -152,6 +173,24 @@ describe('4. Protobuf Renumber', () => {
     ].join('\n')
     const res = renumberProto(proto)
     expect(res.output).toContain('string a = 20000;')
+
+    // Huge reserved range jumps in O(1) instead of looping millions of times
+    const hugeRange = [
+      'message Huge {',
+      '  reserved 1 to 10000000;',
+      '  string a = 1;',
+      '}',
+    ].join('\n')
+    expect(renumberProto(hugeRange).output).toContain('string a = 10000001;')
+
+    // Fully reserved "1 to max" throws cleanly instead of hanging
+    const exhausted = [
+      'message Exhausted {',
+      '  reserved 1 to max;',
+      '  string a = 1;',
+      '}',
+    ].join('\n')
+    expect(() => renumberProto(exhausted)).toThrow()
   })
 })
 
@@ -217,10 +256,14 @@ describe('7. Regex Lab', () => {
     expect(res.segments.filter((s) => s.isMatch)).toHaveLength(2)
     expect(res.replaced).toContain('support [at] farfarfun.dev')
 
-    // Zero-length match must not hang
+    // Zero-length match must not hang (including Unicode surrogate pairs)
     const zeroLen = evaluateRegex('a*', ['g'], 'bb')
     expect(zeroLen.valid).toBe(true)
     expect(zeroLen.count).toBe(3)
+
+    const emojiZero = evaluateRegex('a*', ['g', 'u'], '🚀b')
+    expect(emojiZero.valid).toBe(true)
+    expect(emojiZero.segments.map((s) => s.text).join('')).toBe('🚀b')
 
     // Invalid regex returns structured error
     const bad = evaluateRegex('([unclosed', ['g'], 'abc')
@@ -232,12 +275,18 @@ describe('7. Regex Lab', () => {
 describe('8. Cron Parser', () => {
   it('parses 5-field and 6-field Cron expressions and calculates next 10 exact runs', () => {
     const base = new Date('2026-01-01T00:00:00.000Z') // Thu 08:00 Asia/Shanghai
-    const res5 = parseCron('0 9 * * 1-5', { count: 10, timeZone: 'Asia/Shanghai', fromDate: base })
+    const res5 = parseCron('0 9 * * 1-5', {
+      count: 10,
+      timeZone: 'Asia/Shanghai',
+      fromDate: base,
+      locale: 'zh-CN',
+    })
     expect(res5.valid).toBe(true)
     expect(res5.fieldCount).toBe(5)
     expect(res5.fields).toHaveLength(5)
     expect(res5.nextRuns).toHaveLength(10)
     expect(res5.nextRuns[0].formatted).toBe('2026-01-01 09:00:00')
+    expect(res5.nextRuns[0].relative).toContain('后')
     expect(res5.nextRuns[1].formatted).toBe('2026-01-02 09:00:00')
     // Skips Saturday Jan 3 & Sunday Jan 4 -> Monday Jan 5
     expect(res5.nextRuns[2].formatted).toBe('2026-01-05 09:00:00')
@@ -249,6 +298,16 @@ describe('8. Cron Parser', () => {
     expect(res6.fieldCount).toBe(6)
     expect(res6.nextRuns[0].formatted).toBe('2026-01-01 00:00:30')
     expect(res6.nextRuns[1].formatted).toBe('2026-01-01 00:01:00')
+
+    // Standard @daily macro and FRI-SUN wrap-to-Sunday range
+    const daily = parseCron('@daily', { count: 2, timeZone: 'UTC', fromDate: base })
+    expect(daily.valid).toBe(true)
+    expect(daily.nextRuns[0].formatted).toBe('2026-01-02 00:00:00')
+
+    const friSun = parseCron('0 9 * * FRI-SUN', { count: 3, timeZone: 'UTC', fromDate: base })
+    expect(friSun.valid).toBe(true)
+    expect(friSun.nextRuns[0].formatted).toBe('2026-01-02 09:00:00')
+    expect(friSun.nextRuns[2].formatted).toBe('2026-01-04 09:00:00')
 
     const invalid = parseCron('99 * * * *')
     expect(invalid.valid).toBe(false)

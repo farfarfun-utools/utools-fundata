@@ -412,35 +412,37 @@ defineExpose({ loadSample, applyInput, getExportPayload })
   position: sticky;
   top: 0;
   text-align: left;
-  padding: 6px 8px;
+  padding: 6px 6px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .rx-table td {
-  padding: 6px 8px;
+  padding: 6px 6px;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 
 .col-idx {
-  width: 28px;
+  width: 24px;
   color: var(--text-muted);
 }
 
 .col-pos {
-  width: 58px;
+  width: 44px;
   color: var(--text-muted);
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .match-cell {
   color: var(--accent);
   font-weight: 600;
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .groups-cell {
@@ -456,7 +458,8 @@ defineExpose({ loadSample, applyInput, getExportPayload })
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   font-size: 11px;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .muted-dash {

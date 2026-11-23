@@ -164,10 +164,13 @@ export function evaluateRegex(
         start,
         end,
         groups: m.slice(1).map((g) => (g === undefined ? '' : g)),
-        namedGroups: m.groups ? { ...m.groups } : undefined,
+        namedGroups: m.groups
+          ? Object.fromEntries(Object.entries(m.groups).map(([k, v]) => [k, v ?? '']))
+          : undefined,
       })
       if (m[0].length === 0) {
-        regex.lastIndex += 1
+        const cp = regex.unicode ? text.codePointAt(regex.lastIndex) : undefined
+        regex.lastIndex += cp !== undefined && cp > 0xffff ? 2 : 1
         if (regex.lastIndex > text.length) break
       }
     }
@@ -180,7 +183,9 @@ export function evaluateRegex(
         start: m.index,
         end: m.index + m[0].length,
         groups: m.slice(1).map((g) => (g === undefined ? '' : g)),
-        namedGroups: m.groups ? { ...m.groups } : undefined,
+        namedGroups: m.groups
+          ? Object.fromEntries(Object.entries(m.groups).map(([k, v]) => [k, v ?? '']))
+          : undefined,
       })
     }
   }

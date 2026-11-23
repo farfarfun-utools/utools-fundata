@@ -54,6 +54,16 @@ const DOW_ALIASES: Record<string, number> = {
   SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6,
 }
 
+const CRON_MACROS: Record<string, string> = {
+  '@yearly': '0 0 1 1 *',
+  '@annually': '0 0 1 1 *',
+  '@monthly': '0 0 1 * *',
+  '@weekly': '0 0 * * 0',
+  '@daily': '0 0 * * *',
+  '@midnight': '0 0 * * *',
+  '@hourly': '0 * * * *',
+}
+
 const DOW_ZH = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 const DOW_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -128,9 +138,10 @@ function parseCronField(
         throw new Error(`Invalid range "${rangePart}"`)
       }
       const startRaw = parseFieldAtom(bounds[0], min, max, aliases, isDow)
-      // Preserve 7 as Sunday end in range like 5-7
+      // Preserve 7 as Sunday end in range like 5-7 or FRI-SUN
+      const endTokenUpper = bounds[1].toUpperCase()
       const endRaw =
-        isDow && bounds[1] === '7'
+        isDow && (bounds[1] === '7' || (endTokenUpper === 'SUN' && startRaw > 0))
           ? 7
           : parseFieldAtom(bounds[1], min, max, aliases, isDow)
       if (endRaw < startRaw) {
@@ -410,6 +421,7 @@ function computeNextRuns(
   count: number,
   timeZone: string,
   fromDate: Date,
+  locale: 'zh-CN' | 'en' = 'en',
 ): CronRunItem[] {
   let formatter: Intl.DateTimeFormat
   try {
@@ -534,7 +546,7 @@ function computeNextRuns(
         timestamp: epochMs,
         iso: runDate.toISOString(),
         formatted: formatDateInTimeZone(runDate, timeZone),
-        relative: formatRelativeTime(epochMs - startMs),
+        relative: formatRelativeTime(epochMs - startMs, locale),
       })
     }
 
@@ -560,6 +572,7 @@ function computeNextRuns(
 export function isLikelyCronExpression(input: string): boolean {
   const trimmed = input.trim()
   if (!trimmed || trimmed.includes('\n')) return false
+  if (CRON_MACROS[trimmed.toLowerCase()]) return true
   const parts = trimmed.split(/\s+/)
   if (parts.length !== 5 && parts.length !== 6) return false
   if (!parts.every((p) => /^[\d*,/?A-Za-z-]+$/.test(p))) return false
@@ -569,12 +582,14 @@ export function isLikelyCronExpression(input: string): boolean {
 
 export function parseCron(
   expression: string,
-  options?: { count?: number; timeZone?: string; fromDate?: Date },
+  options?: { count?: number; timeZone?: string; fromDate?: Date; locale?: 'zh-CN' | 'en' },
 ): CronParseResult {
   const trimmed = expression.trim()
+  const expanded = CRON_MACROS[trimmed.toLowerCase()] ?? trimmed
   const timeZone = options?.timeZone || 'Asia/Shanghai'
   const count = Math.max(1, Math.min(20, Math.floor(options?.count ?? 10)))
   const fromDate = options?.fromDate ?? new Date()
+  const locale = options?.locale ?? 'en'
 
   if (!trimmed) {
     return {
@@ -590,7 +605,7 @@ export function parseCron(
     }
   }
 
-  const tokens = trimmed.split(/\s+/)
+  const tokens = expanded.split(/\s+/)
   if (tokens.length !== 5 && tokens.length !== 6) {
     return {
       valid: false,
@@ -674,7 +689,7 @@ export function parseCron(
     )
 
     const desc = buildHumanDescription(fieldMap, isSix)
-    const nextRuns = computeNextRuns(fieldMap, count, timeZone, fromDate)
+    const nextRuns = computeNextRuns(fieldMap, count, timeZone, fromDate, locale)
 
     return {
       valid: true,

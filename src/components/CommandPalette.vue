@@ -34,12 +34,13 @@ const allItems = computed<PaletteItem[]>(() => {
     TOOL_CATEGORIES.map((c) => [c.id, isEn ? c.labelEn : c.labelZh]),
   )
 
+  const total = TOOL_REGISTRY.length
   const overview: PaletteItem = {
     id: 'overview',
     icon: 'grid',
     tone: 'violet',
-    title: isEn ? 'Tool Overview (All 10)' : '工具总览（全部 10 项）',
-    subtitle: isEn ? 'Browse all developer data tools' : '浏览与搜索全部 10 款开发者数据工具',
+    title: isEn ? `Tool Overview (All ${total})` : `工具总览（全部 ${total} 项）`,
+    subtitle: isEn ? `Browse all ${total} developer data tools` : `浏览与搜索全部 ${total} 款开发者数据工具`,
     categoryLabel: isEn ? 'Home' : '首页',
     searchText: 'overview home grid all 工具总览 首页 全部',
   }

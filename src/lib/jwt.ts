@@ -162,6 +162,14 @@ function formatDurationSeconds(diffSec: number): string {
   return future ? `in ${d}d` : `${d}d ago`
 }
 
+function safeIsoFromSeconds(sec: number | null): string | undefined {
+  if (sec === null) return undefined
+  const ms = sec * 1000
+  if (!Number.isFinite(ms) || Math.abs(ms) > 8.64e15) return undefined
+  const d = new Date(ms)
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
+}
+
 export function decodeJwt(token: string): DecodedJwt {
   const cleaned = stripBearer(token)
   const parts = cleaned.split('.')
@@ -214,9 +222,9 @@ export function decodeJwt(token: string): DecodedJwt {
     signature,
     algorithm,
     status,
-    issuedAt: iat !== null ? new Date(iat * 1000).toISOString() : undefined,
-    notBefore: nbf !== null ? new Date(nbf * 1000).toISOString() : undefined,
-    expiresAt: exp !== null ? new Date(exp * 1000).toISOString() : undefined,
+    issuedAt: safeIsoFromSeconds(iat),
+    notBefore: safeIsoFromSeconds(nbf),
+    expiresAt: safeIsoFromSeconds(exp),
     expiresIn: exp !== null ? formatDurationSeconds(exp - nowSec) : undefined,
     headerJson: JSON.stringify(header, null, 2),
     payloadJson: JSON.stringify(payload, null, 2),

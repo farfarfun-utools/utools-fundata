@@ -9,6 +9,7 @@ interface ProtoScope {
 
 const PROTO_RESERVED_START = 19000
 const PROTO_RESERVED_END = 19999
+const PROTO_MAX_FIELD_NUMBER = 536870911
 
 function stripLineCommentsAndStrings(line: string, inBlockComment: boolean): {
   code: string
@@ -153,11 +154,32 @@ function isNumberReserved(scope: ProtoScope, num: number, isMessage: boolean): b
 
 function allocateNextNumber(scope: ProtoScope, isMessage: boolean): number {
   let candidate = scope.nextNumber
+  let guard = 0
   while (isNumberReserved(scope, candidate, isMessage)) {
+    guard += 1
+    if (guard > 10000) {
+      throw new Error('No available Protobuf field number outside reserved ranges')
+    }
     if (isMessage && candidate >= PROTO_RESERVED_START && candidate <= PROTO_RESERVED_END) {
       candidate = PROTO_RESERVED_END + 1
-    } else {
+      continue
+    }
+    let jumped = false
+    for (const [start, end] of scope.reservedRanges) {
+      if (candidate >= start && candidate <= end) {
+        if (end >= PROTO_MAX_FIELD_NUMBER) {
+          throw new Error('No available Protobuf field number outside reserved ranges')
+        }
+        candidate = end + 1
+        jumped = true
+        break
+      }
+    }
+    if (!jumped) {
       candidate += 1
+    }
+    if (isMessage && candidate > PROTO_MAX_FIELD_NUMBER) {
+      throw new Error('Protobuf field number exceeded maximum (536870911)')
     }
   }
   scope.nextNumber = candidate + 1
