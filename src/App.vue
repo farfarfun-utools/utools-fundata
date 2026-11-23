@@ -21,6 +21,7 @@ import ProtoTool from './components/tools/ProtoTool.vue'
 import RegexTool from './components/tools/RegexTool.vue'
 import SqlTool from './components/tools/SqlTool.vue'
 import TextTool from './components/tools/TextTool.vue'
+import TimestampTool from './components/tools/TimestampTool.vue'
 import UnitsTool from './components/tools/UnitsTool.vue'
 import { registerFunDataAiTools } from './lib/ai-tools'
 import { t } from './lib/i18n'
@@ -52,6 +53,7 @@ const TOOL_COMPONENTS: Record<ToolId, Component> = {
   jwt: JwtTool,
   crypto: CryptoTool,
   regex: RegexTool,
+  timestamp: TimestampTool,
   cron: CronTool,
   units: UnitsTool,
   text: TextTool,
@@ -343,7 +345,7 @@ function handleUtoolsEnter(action: { code: string; type: string; payload: unknow
       protobuf: 'proto',
       base64: 'encoding',
       编解码: 'encoding',
-      时间戳: 'encoding',
+      时间戳: 'timestamp',
       jwt: 'jwt',
       hash: 'crypto',
       md5: 'crypto',

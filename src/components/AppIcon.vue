@@ -32,6 +32,7 @@ export type IconName =
   | 'wand'
   | 'hash'
   | 'chevron-right'
+  | 'calendar-clock'
 
 withDefaults(
   defineProps<{
@@ -256,6 +257,15 @@ withDefaults(
 
     <template v-else-if="name === 'chevron-right'">
       <path d="m9 18 6-6-6-6" />
+    </template>
+
+    <template v-else-if="name === 'calendar-clock'">
+      <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5" />
+      <path d="M16 2v4" />
+      <path d="M8 2v4" />
+      <path d="M3 10h5" />
+      <circle cx="16" cy="16" r="6" />
+      <path d="M16 14v2.2l1.6 1" />
     </template>
   </svg>
 </template>

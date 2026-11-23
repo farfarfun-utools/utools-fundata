@@ -12,6 +12,7 @@ export type ToolId =
   | 'jwt'
   | 'crypto'
   | 'regex'
+  | 'timestamp'
   | 'cron'
   | 'units'
   | 'text'
@@ -119,14 +120,14 @@ export const TOOL_REGISTRY: ToolMeta[] = [
     category: 'security',
     icon: 'binary',
     tone: 'teal',
-    nameZh: '编解码与时间戳',
-    nameEn: 'Codec & Timestamp',
-    shortZh: '编解码·时间',
-    shortEn: 'Codec & Time',
-    descZh: 'Base64 / URL / Unicode / HTML / Hex / JSON 转义及多时区 Unix 时间戳互转',
-    descEn: 'Base64, URL, Unicode, HTML, Hex codecs plus multi-timezone Unix timestamp converter',
-    tags: ['Base64', 'URL', 'Timestamp'],
-    keywords: ['encode', 'decode', 'base64', 'url', 'unicode', 'html', 'hex', 'timestamp', 'unix', '时间', '时间戳', '编码', '解码'],
+    nameZh: '文本编解码',
+    nameEn: 'Text Codec',
+    shortZh: '文本编解码',
+    shortEn: 'Text Codec',
+    descZh: 'Base64 / URL / Unicode / HTML / Hex / JSON 字符串转义双向编解码',
+    descEn: 'Bidirectional Base64, URL, Unicode, HTML, Hex & JSON string codecs',
+    tags: ['Base64', 'URL', 'Unicode', 'Hex'],
+    keywords: ['encode', 'decode', 'codec', 'base64', 'url', 'unicode', 'html', 'hex', '编码', '解码', '编解码'],
   },
   {
     id: 'jwt',
@@ -169,6 +170,20 @@ export const TOOL_REGISTRY: ToolMeta[] = [
     descEn: 'Live match highlighting, capture group table, replace preview & 7 curated presets',
     tags: ['Match', 'Groups', 'Replace'],
     keywords: ['regex', 'regexp', 'pattern', 'match', 'replace', '正则', '匹配', '捕获组'],
+  },
+  {
+    id: 'timestamp',
+    category: 'productivity',
+    icon: 'calendar-clock',
+    tone: 'indigo',
+    nameZh: 'Unix 时间戳与多时区',
+    nameEn: 'Unix Timestamp & Timezones',
+    shortZh: '时间戳',
+    shortEn: 'Timestamp',
+    descZh: '自动识别秒/毫秒 Unix 时间戳、日期互转、ISO 8601 / RFC 2822 与 5 大时区对照',
+    descEn: 'Auto s/ms Unix timestamp & date conversion with ISO 8601, RFC 2822 & 5 world timezones',
+    tags: ['Unix s/ms', 'ISO 8601', '5 Zones'],
+    keywords: ['timestamp', 'unix', 'epoch', 'date', 'time', 'timezone', 'iso', '时间', '时间戳', '时区', '日期'],
   },
   {
     id: 'cron',
@@ -358,10 +373,13 @@ export function detectRouteForInput(rawInput: string, filename?: string): RouteD
     return { tool: 'convert', payload: trimmed }
   }
 
-  // 6. Timestamp / URL-encoded / Unicode escape / Base64
+  // 6. Unix Timestamp (10-digit seconds or 13-digit milliseconds)
+  if (/^-?\d{10}$/.test(trimmed) || /^-?\d{13}$/.test(trimmed)) {
+    return { tool: 'timestamp', payload: trimmed }
+  }
+
+  // 7. URL-encoded / Unicode escape / Base64
   if (
-    /^-?\d{10}$/.test(trimmed) ||
-    /^-?\d{13}$/.test(trimmed) ||
     /%[0-9a-fA-F]{2}/.test(trimmed) ||
     /\\u[0-9a-fA-F]{4}/.test(trimmed) ||
     (!trimmed.includes(' ') &&

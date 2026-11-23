@@ -4,7 +4,7 @@ import { nextTick } from 'vue'
 import App from '../src/App.vue'
 import { SAMPLES } from '../src/lib/storage'
 
-describe('FunData 10-in-1 Studio App', () => {
+describe('FunData 11-in-1 Studio App', () => {
   beforeEach(() => {
     const store = new Map<string, string>()
     Object.defineProperty(window, 'localStorage', {
@@ -27,10 +27,10 @@ describe('FunData 10-in-1 Studio App', () => {
     window.utools = undefined
   })
 
-  it('renders 10 tool cards in Overview and supports category & search filtering', async () => {
+  it('renders 11 tool cards in Overview and supports category & search filtering', async () => {
     const wrapper = mount(App)
     expect(wrapper.find('[data-testid="overview-grid"]').exists()).toBe(true)
-    expect(wrapper.findAll('.tool-card')).toHaveLength(10)
+    expect(wrapper.findAll('.tool-card')).toHaveLength(11)
 
     // Filter by category: security (3 tools: encoding, jwt, crypto)
     await wrapper.find('[data-testid="cat-chip-security"]').trigger('click')
@@ -82,7 +82,7 @@ describe('FunData 10-in-1 Studio App', () => {
     expect(document.documentElement.dataset.theme).toBe('dark')
 
     await wrapper.find('[data-testid="locale-btn"]').trigger('click')
-    expect(wrapper.text()).toContain('All Data Tools · 10')
+    expect(wrapper.text()).toContain('All Data Tools · 11')
 
     wrapper.unmount()
   })
@@ -128,6 +128,15 @@ describe('FunData 10-in-1 Studio App', () => {
     enterCb!({ code: 'fundata-encode', type: 'text', payload: 'jwt' })
     await nextTick()
     expect(wrapper.find('[data-testid="tool-jwt"]').exists()).toBe(true)
+
+    enterCb!({ code: 'fundata-encode', type: 'text', payload: '时间戳' })
+    await nextTick()
+    expect(wrapper.find('[data-testid="tool-timestamp"]').exists()).toBe(true)
+
+    enterCb!({ code: 'fundata-encode', type: 'text', payload: 'base64' })
+    await nextTick()
+    expect(wrapper.find('[data-testid="tool-encoding"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="encoding-ts-tab"]').exists()).toBe(false)
 
     enterCb!({ code: 'fundata-regex', type: 'text', payload: '文本对比' })
     await nextTick()
